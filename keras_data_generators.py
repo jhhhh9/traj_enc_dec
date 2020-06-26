@@ -1,13 +1,24 @@
 """This module handles the different keras data generators"""
 
+import copy 
 import keras 
 import numpy as np 
 
+from traj_processor import TrajProcessor
+
 class KerasFitGenerator(keras.utils.Sequence):
     """Generator for the training and validation"""
-    def __init__(self, X, y, batch_size):
-        self.X = self.__pad_jagged_array(X)
-        self.y = self.__pad_jagged_array(y)
+    def __init__(self, X, y, topk_weights, batch_size):
+        self.X = self.__pad_jagged_array(copy.deepcopy(X))
+        self.y = copy.deepcopy(y) 
+        
+        
+        # self.y[:,0] = TrajProcessor().all_traj_to_topk(self.y[:,0],topk_weights)
+        # YOU WERE HERE
+        # TRANSFORM THE TOPK FROM HAVING AN INNER FEATURE SIZE OF 5 TO 1 AND 
+        # HAVE 5 SEPARATE ARRAYS. THEN, PAD THEM ALL SO YOU HAVE A SMOOTH ARRRAY
+        self.y = np.zeros((self.X.shape[0],16,2))
+        
         self.batch_size = batch_size
         assert self.X.shape[0] == self.y.shape[0], ("X and y have different " +
                                                     "number of data")
@@ -27,7 +38,7 @@ class KerasFitGenerator(keras.utils.Sequence):
     def __getitem__(self, index):
         X = self.X[index*self.batch_size:(index+1)*self.batch_size]
         y = self.y[index*self.batch_size:(index+1)*self.batch_size]
-        return X, y 
+        return X, y   
         
         
     def __pad_jagged_array(self, in_array):
@@ -65,7 +76,7 @@ class KerasFitGenerator(keras.utils.Sequence):
 class KerasPredictGenerator(keras.utils.Sequence):
     """Generator for the prediction""" 
     def __init__(self, X, batch_size):
-        self.X = self.__pad_jagged_array(X)
+        self.X = self.__pad_jagged_array(copy.deepcopy(X))
         self.batch_size = batch_size 
         
         

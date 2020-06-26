@@ -28,6 +28,7 @@ class ArgProcessor():
         self.topk_weights_path = config['DIRECTORY']['TopKWeightsPath']
         
         self.batch_size = int(config['TRAINING']['BatchSize'])
+        self.triplet_margin = float(config['TRAINING']['TripletMargin'])
         
         self.gru_cell_size = int(config['MODEL']['GRUCellSize'])
         self.num_gru_layers = int(config['MODEL']['NumGruLayers'])

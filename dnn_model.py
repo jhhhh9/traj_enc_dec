@@ -377,6 +377,9 @@ class STSeqModel():
         # 'traj_repr' shape (batch_size, trg_traj_len, k)
         traj_repr = TimeDistributed(Dense(k))(traj_repr)
         
+        # 'patt_repr' shape (batch_size, trg_traj_len, 2)
+        patt_repr = TimeDistributed(Dense(2))(patt_repr)
+        
         # Encoder part 
         encoder = encoder_decoder.encoder 
         # 'q' shape (batch_size, traj_len, 1). 
@@ -390,8 +393,26 @@ class STSeqModel():
         enc_gt = encoder.model(gt)
         enc_neg = encoder.model(neg) 
         
-        # Compile model 
-        model = Model(inputs = inputs, outputs = [enc_q, enc_gt, enc_neg, 
-                                                  traj_repr, patt_repr,
-                                                  gt_len, gt_patt_len])
-        self.model = model
+        # Three loss functions needed, so we need three outputs 
+        # First is the representation loss which takes the encoder outputs 
+        # 'enc_q' shape (batch_size, traj_len, gru_cell_size * directions). 
+        # 'enc_gt' shape (batch_size, traj_len, gru_cell_size * directions). 
+        # 'enc_neg' shape (batch_size, traj_len, gru_cell_size * directions). 
+        # 'out_repr' shape (batch_size, 3, traj_len, gru_cell_size * directions)
+        out_repr = K.stack([enc_q, enc_gt, enc_neg], axis=1)
+        
+        # Second is the point-to-point spatiotemporal loss 
+        # 'traj_repr' shape (batch_size, trg_traj_len, k)
+        # 'gt_len' shape (batch_size, traj_len, 1). 
+        # 'out_traj' shape (batch_size, traj_len, k+1)
+        out_traj = Concatenate()([traj_repr, gt_len]) 
+        
+        # Third is the pattern loss 
+        # 'patt_repr' shape (batch_size, trg_traj_len, 2)
+        # 'gt_patt_len' shape (batch_size, traj_len, 1). 
+        # 'out_patt' shape (batch_size, traj_len, 3). 
+        out_patt = Concatenate()([patt_repr, gt_patt_len])
+         
+        # Create model 
+        model = Model(inputs = inputs, outputs = [out_repr, out_traj, out_patt])
+        self.model = model  
