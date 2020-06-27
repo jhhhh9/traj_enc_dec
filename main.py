@@ -68,8 +68,9 @@ def main():
     # TEST START
     model_processor = ModelProcessor() 
     triplet_margin = arg_processor.triplet_margin
-    a = model_processor.model_train(stseqmodel.model, train_gen, val_gen, 
-                                    triplet_margin)
+    epochs = arg_processor.epochs 
+    a = model_processor.model_train(stseqmodel.model, epochs, 
+                                    train_gen, val_gen, triplet_margin)
     # TEST END  
     
 if __name__ == "__main__":

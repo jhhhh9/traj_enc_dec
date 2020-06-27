@@ -29,6 +29,7 @@ class ArgProcessor():
         
         self.batch_size = int(config['TRAINING']['BatchSize'])
         self.triplet_margin = float(config['TRAINING']['TripletMargin'])
+        self.epochs = int(config['TRAINING']['Epochs'])
         
         self.gru_cell_size = int(config['MODEL']['GRUCellSize'])
         self.num_gru_layers = int(config['MODEL']['NumGruLayers'])

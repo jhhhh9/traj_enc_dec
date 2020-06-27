@@ -3,34 +3,39 @@ This module handles tasks related to the Keras models except the creation.
 Tasks such as the training and testing of the models are done here. 
 """
 
+import tensorflow as tf 
 import tensorflow.keras.backend as K 
+
 
 class ModelProcessor():
     """
     This class handles the general Keras model operations such as training and 
     prediction.
     """
-    def model_train(self, model, train_generator, val_generator, 
+    def model_train(self, model, epochs, train_generator, val_generator, 
                     triplet_margin):
         """
         Trains the provided model.
         
         Args:
             model: (keras model) The model to be trained 
+            epochs: (int) The number of epochs for the training 
             train_generator: (keras generator) The data generator for the 
                               training.
             val_generator: (keras generator) The data generator for the 
                             validation. 
             triplet_margin: (float) Margin for the triplet loss 
         """
+        #model.compile(optimizer = "sgd", 
+        #              loss = [self.repr_loss(triplet_margin)])
         model.compile(optimizer = "sgd", 
-                      loss = [self.repr_loss(triplet_margin)])
+                      loss = [self.point2point_loss])
         ## YOU WERE HERE 
-        ## TRIPLET MARGIN LOSS DONE... I THINK, NEEDS CHECKING. 
-        ## TEST IT FIRST, SEE IF IT WORKS FINE. 
-        ## THEN, DESIGN THE OTHER 2 LOSS FUNCTIONS AND THEN TEST THEM ONE-BY-ONE
+        ## FINISH AND TEST THE LOSSES ONE-BY-ONE-BY-O 
+        ## ONCE ALL ARE TESTED. USE THEM ALL AT ONCE. 
+        ## CHECK IF ANY WARNINGS PERSIST ONCE YOU USED ALL THREE LOSSES 
         model.fit(train_generator, validation_data = val_generator,
-                  use_multiprocessing = True, workers = 4) 
+                  epochs = epochs) 
 
 
     def repr_loss(self, margin):
@@ -38,10 +43,20 @@ class ModelProcessor():
         The representation loss takes the 
         
         Args:
-            y_true
-            y_pred
+            y_true: (whatever) Supposed to be the ground truth values, but this 
+                     is not used in the representation loss as this loss 
+                     relies entirely on the model output. 
+            y_pred: (keras tensor) Keras tensor of shape 
         """
         def triplet_loss(y_true, y_pred):
+            """
+            Args:
+                y_true: (whatever) Supposed to be the ground truth values, but 
+                         this is not used in the representation loss as this 
+                         loss relies entirely on the model output. 
+                y_pred: (keras tensor) Keras tensor of shape 
+                        (batch_size,3,traj_len, gru_cell_size * directions)
+            """
             # Split y_pred, consisting of the output from the model 
             # 'y_pred' shape (batch_size,3,traj_len, gru_cell_size * directions)
             # 'anc' shape (batch_size, traj_len, gru_cell_size * directions). 
@@ -64,10 +79,28 @@ class ModelProcessor():
         return triplet_loss 
 
 
-    def point2point_loss(self, y_true, y_prd):
+    def point2point_loss(self, y_true, y_pred):
         """
         """
-        return None 
+        # 'y_pred' shape (batch_size, trg_traj_len, k+1)
+        # 'y_weights' shape (batch_size, traj_len, k). 
+        y_pred_weights = y_pred[:,:,:-1]
+        
+        # 'y_true' shape (batch_size, traj_len, k)
+        y_true_weights = y_true[:,:,:-2]
+        
+        # Create the boolean mask to filter out nan values in y_true_weights 
+        bool_finite = tf.math.is_finite(y_true_weights)
+        
+        # Apply mask to both y_true_weights and y_pred_weights
+        y_pred_weights = tf.boolean_mask(y_pred_weights, bool_finite)
+        y_true_weights = tf.boolean_mask(y_true_weights, bool_finite)
+        
+        # TEST START 
+        dist = K.sqrt(K.sum(K.square(y_true_weights - y_pred_weights), 
+                       axis=-1,keepdims=False))  
+        return dist 
+        # TEST END 
         
         
     def patt_loss(self, y_true, y_pred):

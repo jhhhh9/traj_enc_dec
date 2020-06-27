@@ -414,5 +414,6 @@ class STSeqModel():
         out_patt = Concatenate()([patt_repr, gt_patt_len])
          
         # Create model 
-        model = Model(inputs = inputs, outputs = [out_repr, out_traj, out_patt])
+        #model = Model(inputs = inputs, outputs = [out_repr, out_traj, out_patt])
+        model = Model(inputs = inputs, outputs = [out_traj])
         self.model = model  
