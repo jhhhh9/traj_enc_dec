@@ -58,24 +58,27 @@ def main():
     gru_dropout_ratio = arg_processor.gru_dropout_ratio
     bidirectional = arg_processor.bidirectional
     use_attention = arg_processor.use_attention
-    xshape = train_gen.X.shape
     k = topk_weights.shape[1]
     stseqmodel = STSeqModel(embedding_vocab_size, embedding_size,traj_repr_size,
                             gru_cell_size, num_gru_layers, gru_dropout_ratio, 
-                            bidirectional, use_attention, xshape, k)
+                            bidirectional, use_attention, k)
     
-    
-    # TEST START
-    model_processor = ModelProcessor() 
+    # Train the model 
+    model_processor = ModelProcessor()  
     triplet_margin = arg_processor.triplet_margin
     epochs = arg_processor.epochs 
-    a = model_processor.model_train(stseqmodel.model, epochs, 
-                                    train_gen, val_gen, triplet_margin)
-    # TEST END  
+    #model_processor.model_train(stseqmodel.model, epochs, 
+    #                            train_gen, val_gen, triplet_margin)
+
+    # Use the trained encoder for the prediction 
+    pred_model = stseqmodel.encoder.model
+    pred_gen = KerasPredictGenerator(test_q, batch_size)
+    predictions = model_processor.model_predict(pred_model, )
+
     
 if __name__ == "__main__":
     start_dt = datetime.datetime.now()
-    start_t = time.time()
+    start_t = time.time() 
     print("START DATETIME")
     print(start_dt)
     main()

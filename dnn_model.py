@@ -301,7 +301,7 @@ class STSeqModel():
     
     def __init__(self, embed_vocab_size, embedding_size, traj_repr_size,
                  gru_cell_size, num_gru_layers, gru_dropout_ratio, 
-                 bidirectional, use_attention, xshape, k):
+                 bidirectional, use_attention, k):
         """
         Creates the model
         
@@ -318,7 +318,9 @@ class STSeqModel():
         # - negative trajectory
         # - ground truth length
         # - ground truth pattern length 
-        inputs = Input((xshape[1], xshape[2], xshape[3]))
+        self.__NUM_FEATURES = 7 
+        self.__NUM_INNER_FEATURES = 1
+        inputs = Input((self.__NUM_FEATURES, None, self.__NUM_INNER_FEATURES))
         
         ## Lambda layers to split the inputs. 
         # 'gt' shape (batch_size, traj_len, 1). 
@@ -342,7 +344,7 @@ class STSeqModel():
         
         # 'gt_patt_t' shape (batch_size, traj_len, 1).
         gt_patt_t = Lambda(lambda x:x[:,4,:,:])(inputs)
-        gt_patt_t = Masking(mask_value = 0)(gt_patt_t) 
+        gt_patt_t = Masking(mask_value = 0)(gt_patt_t)  
         
         # 'gt_patt_st' shape (batch_size, traj_len, 2)
         gt_patt_st = Concatenate(axis=2)([gt_patt_s, gt_patt_t])
@@ -375,13 +377,13 @@ class STSeqModel():
         [traj_repr, patt_repr] = encoder_decoder.model([q, gt, gt_patt_st])
         
         # 'traj_repr' shape (batch_size, trg_traj_len, k)
-        traj_repr = TimeDistributed(Dense(k))(traj_repr)
+        traj_repr = TimeDistributed(Dense(k, activation = 'softmax'))(traj_repr)
         
         # 'patt_repr' shape (batch_size, trg_traj_len, 2)
         patt_repr = TimeDistributed(Dense(2))(patt_repr)
         
         # Encoder part 
-        encoder = encoder_decoder.encoder 
+        self.encoder = encoder_decoder.encoder 
         # 'q' shape (batch_size, traj_len, 1). 
         # 'gt' shape (batch_size, traj_len, 1). 
         # 'neg' shape (batch_size, traj_len, 1). 
@@ -389,9 +391,9 @@ class STSeqModel():
         # 'enc_gt' shape (batch_size, traj_len, gru_cell_size * directions). 
         # 'enc_neg' shape (batch_size, traj_len, gru_cell_size * directions). 
         # directions = 2 if bidirectional, else 1 
-        enc_q = encoder.model(q)
-        enc_gt = encoder.model(gt)
-        enc_neg = encoder.model(neg) 
+        enc_q = self.encoder.model(q)
+        enc_gt = self.encoder.model(gt)
+        enc_neg = self.encoder.model(neg) 
         
         # Three loss functions needed, so we need three outputs 
         # First is the representation loss which takes the encoder outputs 
@@ -405,7 +407,7 @@ class STSeqModel():
         # 'traj_repr' shape (batch_size, trg_traj_len, k)
         # 'gt_len' shape (batch_size, traj_len, 1). 
         # 'out_traj' shape (batch_size, traj_len, k+1)
-        out_traj = Concatenate()([traj_repr, gt_len]) 
+        out_traj = Concatenate()([traj_repr, gt_len])  
         
         # Third is the pattern loss 
         # 'patt_repr' shape (batch_size, trg_traj_len, 2)
@@ -414,6 +416,5 @@ class STSeqModel():
         out_patt = Concatenate()([patt_repr, gt_patt_len])
          
         # Create model 
-        #model = Model(inputs = inputs, outputs = [out_repr, out_traj, out_patt])
-        model = Model(inputs = inputs, outputs = [out_traj])
-        self.model = model  
+        model = Model(inputs = inputs, outputs = [out_repr, out_traj, out_patt])
+        self.model = model 

@@ -3,9 +3,9 @@ This module handles tasks related to the Keras models except the creation.
 Tasks such as the training and testing of the models are done here. 
 """
 
+import copy 
 import tensorflow as tf 
 import tensorflow.keras.backend as K 
-
 
 class ModelProcessor():
     """
@@ -26,17 +26,33 @@ class ModelProcessor():
                             validation. 
             triplet_margin: (float) Margin for the triplet loss 
         """
-        #model.compile(optimizer = "sgd", 
-        #              loss = [self.repr_loss(triplet_margin)])
-        model.compile(optimizer = "sgd", 
-                      loss = [self.point2point_loss])
-        ## YOU WERE HERE 
-        ## FINISH AND TEST THE LOSSES ONE-BY-ONE-BY-O 
-        ## ONCE ALL ARE TESTED. USE THEM ALL AT ONCE. 
-        ## CHECK IF ANY WARNINGS PERSIST ONCE YOU USED ALL THREE LOSSES 
+        model.compile(optimizer = "adam", 
+                      loss = [self.repr_loss(triplet_margin),
+                              self.point2point_loss,
+                              self.patt_loss])
         model.fit(train_generator, validation_data = val_generator,
                   epochs = epochs) 
 
+
+    def model_predict(self, model, predict_generator):
+        """
+        Use the provided model to do predictions
+        
+        Args:
+            model: (keras model) The model to be used for the prediction 
+            predict_generator: (keras generator) The data generator for the 
+                                prediction data
+            
+        Returns 
+            A numpy array containing the output prediction 
+        """
+        print("MODEL PREDICT NOT IMPLEMENTED YET")
+        assert False 
+        predictions = model.predict(predict_generator)
+        print(predictions.shape)
+        # TEST HERE 
+        input("====")
+        return predictions
 
     def repr_loss(self, margin):
         """
@@ -74,39 +90,79 @@ class ModelProcessor():
             const = K.constant(margin, dtype='float32')
             dist = pos_dist - neg_dist + const 
             dist = K.maximum(dist, 0)
-            dist_sum = K.sum(dist, 1)
+            dist_sum = K.mean(dist, 1)
             return dist_sum
         return triplet_loss 
 
 
     def point2point_loss(self, y_true, y_pred):
         """
+        Calculates the loss function that compares the predicted vs true value 
+        on a trajectory-point-per-trajectory-point basis. 
+        
+        Args:
+            y_true: Actual point2point input 
+            y_pred: Predicted point2point prediction 
         """
         # 'y_pred' shape (batch_size, trg_traj_len, k+1)
         # 'y_weights' shape (batch_size, traj_len, k). 
         y_pred_weights = y_pred[:,:,:-1]
         
-        # 'y_true' shape (batch_size, traj_len, k)
+        # 'y_true' shape (batch_size, traj_len, k+2)
         y_true_weights = y_true[:,:,:-2]
         
         # Create the boolean mask to filter out nan values in y_true_weights 
-        bool_finite = tf.math.is_finite(y_true_weights)
+        bool_finite = tf.math.is_finite(y_true_weights) 
         
         # Apply mask to both y_true_weights and y_pred_weights
         y_pred_weights = tf.boolean_mask(y_pred_weights, bool_finite)
         y_true_weights = tf.boolean_mask(y_true_weights, bool_finite)
         
-        # TEST START 
-        dist = K.sqrt(K.sum(K.square(y_true_weights - y_pred_weights), 
+        # TODO: IMPLEMENT NLL LOSS 
+        dist = K.sqrt(K.mean(K.square(y_true_weights - y_pred_weights), 
                        axis=-1,keepdims=False))  
+        #dist = K.mean(K.categorical_crossentropy(y_true_weights, y_pred_weights,
+        #                                  axis = -1))
         return dist 
-        # TEST END 
         
         
     def patt_loss(self, y_true, y_pred):
         """
+        Calculates the loss function that compares the predicted vs true value
+        spatial and temporal features on a pattern-by-pattern basis. 
+        
+        Args:
+            y_true: Actual pattern input 
+            y_pred: Predicted pattern prediction 
         """
-        return None 
+        # 'y_true_patt' shape (batch_size, trg_traj_len, k+2)
+        # 'y_true_patt_s' shape (batch_size, traj_len, 1). 
+        # 'y_true_patt_t' shape (batch_size, traj_len, 1). 
+        y_true_patt_s = y_true[:,:,-2]
+        y_true_patt_t = y_true[:,:,-1]
+        
+        # 'y_pred_patt' shape (batch_size, trg_traj_len, 3)
+        # 'y_pred_patt_s' shape (batch_size, traj_len, 1). 
+        # 'y_pred_patt_t' shape (batch_size, traj_len, 1). 
+        y_pred_patt_s = y_pred[:,:,0]
+        y_pred_patt_t = y_pred[:,:,1]
+        
+        # Create the boolean mask to filter out nan values in
+        bool_finite_s = tf.math.is_finite(y_true_patt_s) 
+        bool_finite_t = tf.math.is_finite(y_true_patt_t) 
+        
+        
+        # Apply mask to both y_true_weights and y_pred_weights
+        y_true_patt_s = tf.boolean_mask(y_true_patt_s, bool_finite_s)
+        y_true_patt_t = tf.boolean_mask(y_true_patt_t, bool_finite_t)
+        y_pred_patt_s = tf.boolean_mask(y_pred_patt_s, bool_finite_s)
+        y_pred_patt_t = tf.boolean_mask(y_pred_patt_t, bool_finite_t)
+        
+        # Calculate spatial and temporal loss 
+        dist_s = K.mean(K.abs(y_true_patt_s - y_pred_patt_s))
+        dist_t = K.mean(K.abs(y_true_patt_t - y_pred_patt_t))
+        dist_st = dist_s + dist_t
+        return dist_st
         
         
     def model_predict(self, model, data_generator):

@@ -9,30 +9,9 @@ from traj_processor import TrajProcessor
 class KerasFitGenerator(keras.utils.Sequence):
     """Generator for the training and validation"""
     def __init__(self, X, y, topk_weights, batch_size):
-        self.X = self.__pad_jagged_array(copy.deepcopy(X))
+        self.X = copy.deepcopy(X)
         self.y = copy.deepcopy(y) 
-        
-        # Splits y into three 
-        # y_traj consists of the trajectory after the topk lookup 
-        # Shape is (num_traj, traj_len, k)
-        self.y_traj = self.y[:,0]
-        self.y_traj = self.__lookup_topk(self.y_traj, topk_weights)
-        self.y_traj = self.__pad_nan(self.y_traj, None)
-        
-        # y_s_patt consists of the trajectory spatial pattern 
-        # Shape is (num_traj, traj_len, 1) 
-        traj_len = self.y_traj.shape[1]
-        self.y_s_patt = self.y[:,1]
-        self.y_s_patt = self.__pad_nan(self.y_s_patt, traj_len)
-        
-        # y_s_patt consists of the trajectory temporal pattern 
-        # Shape is (num_traj, traj_len, 1) 
-        self.y_t_patt = self.y[:,2]
-        self.y_t_patt = self.__pad_nan(self.y_t_patt, traj_len)
-        
-        # Concatenate y_traj, y_s_patt, and y_t_patt
-        self.y = np.concatenate([self.y_traj, self.y_s_patt, self.y_t_patt],
-                                 axis = 2)
+        self.topk_weights = topk_weights
         self.batch_size = batch_size
         
     def __len__(self):
@@ -49,9 +28,32 @@ class KerasFitGenerator(keras.utils.Sequence):
     def __getitem__(self, index):
         X = self.X[index*self.batch_size:(index+1)*self.batch_size]
         y = self.y[index*self.batch_size:(index+1)*self.batch_size]
-        print(X.shape)
-        print(y.shape) 
-        input("TEST")
+        
+        
+        # Preprocessing the data 
+        # First, pad X so that it's no longer a jagged array 
+        X = self.__pad_jagged_array(X) 
+        
+        # Splits y into three 
+        # y_traj consists of the trajectory after the topk lookup 
+        # Shape is (num_traj, traj_len, k)
+        traj_len = X.shape[2]
+        y_traj = y[:,0]
+        y_traj = self.__lookup_topk(y_traj, self.topk_weights)
+        y_traj = self.__pad_nan(y_traj, traj_len)
+        
+        # y_s_patt consists of the trajectory spatial pattern 
+        # Shape is (num_traj, traj_len, 1) 
+        y_s_patt = y[:,1]
+        y_s_patt = self.__pad_nan(y_s_patt, traj_len)
+        
+        # y_s_patt consists of the trajectory temporal pattern 
+        # Shape is (num_traj, traj_len, 1)  
+        y_t_patt = y[:,2]
+        y_t_patt = self.__pad_nan(y_t_patt, traj_len) 
+        
+        # Concatenate y_traj, y_s_patt, and y_t_patt
+        y = np.concatenate([y_traj, y_s_patt, y_t_patt], axis = 2)
         return X, y
         
 
@@ -145,7 +147,7 @@ class KerasFitGenerator(keras.utils.Sequence):
 class KerasPredictGenerator(keras.utils.Sequence):
     """Generator for the prediction""" 
     def __init__(self, X, batch_size):
-        self.X = self.__pad_jagged_array(copy.deepcopy(X))
+        self.X = X
         self.batch_size = batch_size 
         
         
@@ -161,6 +163,13 @@ class KerasPredictGenerator(keras.utils.Sequence):
     
     def __getitem__(self, index):
         X = self.X[index*self.batch_size:(index+1)*self.batch_size]
+        # YOU WERE HERE 
+        # EACH ITEM IN X IS AN ARRAY OF SIZE 2 CONTAINING THE TRAJ ID (STRING)
+        # AND THEN THE TRAJECTORY ITSELF. 
+        # GATHER ONLY THE TRAJECTORIES, CALL __PAD_JAGGED_ARRAY AND RETURN. 
+        # AFTERWARDS, FINISH THE PREDICTION FUNCTION IN MODEL_PROCESSOR
+        print(X.shape) 
+        input("++++++++")
         return X 
         
         
