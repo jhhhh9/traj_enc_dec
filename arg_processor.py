@@ -45,6 +45,9 @@ class ArgProcessor():
         self.ks = ast.literal_eval(config['PREDICTION']['KS'])
         self.ks.sort()
         
+        self.gpu_used = ast.literal_eval(config['GPU']['GPUUsed'])
+        self.gpu_memory = float(config['GPU']['GPUMemory'])
+        
         # Check if all the inputs files are valid files 
         if not os.path.isfile(self.training_x_path):
             raise IOError("'" + self.training_x_path + "' is not a valid file")
@@ -64,7 +67,7 @@ class ArgProcessor():
             raise IOError("'" + self.topk_weights_path + "' is not a valid file")
         if not os.path.isdir(self.output_directory):
             print("Output director does not exist. Creating...")
-            os.makedirs(self.output_directory)
+            os.makedirs(self.output_directory) 
             
         # Check numerical features 
         if self.batch_size <= 0:
@@ -83,5 +86,10 @@ class ArgProcessor():
             if not isinstance(k, int):
                 raise ValueError("The values in KS must all be integers")
             if k < 1:
-                raise ValueError("K must not be 0 or negative") 
+                raise ValueError("All values in KS must not be 0 or negative") 
+        for x in self.gpu_used:
+            if not isinstance(x, int):
+                raise ValueError("The values in GPUUsed must all be integers")
+        if self.gpu_memory <= 0:
+            raise ValueError("GPUMemory must be a positive value")
         

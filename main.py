@@ -11,6 +11,7 @@ from file_reader import FileReader
 from keras_data_generators import KerasFitGenerator, KerasPredictGenerator
 from log_writer import LogWriter 
 from model_processor import ModelProcessor
+from resource_manager import set_gpu_resource
 from traj_processor import TrajProcessor 
 
 def main(): 
@@ -35,14 +36,10 @@ def main():
     topk_id = file_reader.read_npy(arg_processor.topk_id_path)
     topk_weights = file_reader.read_npy(arg_processor.topk_weights_path)
     
-    # Transform the cell IDs to the top-k nearest cell weights using topk lookup
-    """
-    traj_processor = TrajProcessor()
-    training_y[:,0] = traj_processor.all_traj_to_topk(training_y[:,0], 
-                                                      topk_weights)
-    validation_y[:,0] = traj_processor.all_traj_to_topk(validation_y[:,0], 
-                                                        topk_weights)
-    """
+    # Set the GPU resource
+    gpu_used = arg_processor.gpu_used 
+    gpu_memory = arg_processor.gpu_memory
+    set_gpu_resource(gpu_used, gpu_memory)
     
     # Create the fit generator 
     batch_size = arg_processor.batch_size
