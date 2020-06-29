@@ -316,8 +316,6 @@ class STSeqModel():
         # - ground truth trajectory, 
         # - query trajectory
         # - negative trajectory
-        # - ground truth length
-        # - ground truth pattern length 
         self.__NUM_FEATURES = 7 
         self.__NUM_INNER_FEATURES = 1
         inputs = Input((self.__NUM_FEATURES, None, self.__NUM_INNER_FEATURES))
@@ -349,14 +347,6 @@ class STSeqModel():
         # 'gt_patt_st' shape (batch_size, traj_len, 2)
         gt_patt_st = Concatenate(axis=2)([gt_patt_s, gt_patt_t])
         
-        # 'gt_len' shape (batch_size, traj_len, 1). 
-        # Represents the actual ground truth trajectory length. 
-        gt_len = Lambda(lambda x:x[:,5,:,:])(inputs)
-        
-        # 'gt_patt_len' shape (batch_size, traj_len, 1). 
-        # Represents the ground truth pattern length. 
-        gt_patt_len = Lambda(lambda x:x[:,6,:,:])(inputs)
-        
         # EncoderDecoder model 
         assert gt_patt_s.shape[0] == gt_patt_t.shape[0] 
         src_traj_len = q.shape[1]
@@ -375,12 +365,6 @@ class STSeqModel():
                                          num_gru_layers, gru_dropout_ratio,
                                          bidirectional, use_attention)
         [traj_repr, patt_repr] = encoder_decoder.model([q, gt, gt_patt_st])
-        
-        # 'traj_repr' shape (batch_size, trg_traj_len, k)
-        traj_repr = TimeDistributed(Dense(k, activation = 'softmax'))(traj_repr)
-        
-        # 'patt_repr' shape (batch_size, trg_traj_len, 2)
-        patt_repr = TimeDistributed(Dense(2))(patt_repr)
         
         # Encoder part 
         self.encoder = encoder_decoder.encoder 
@@ -403,18 +387,12 @@ class STSeqModel():
         # 'out_repr' shape (batch_size, 3, traj_len, gru_cell_size * directions)
         out_repr = K.stack([enc_q, enc_gt, enc_neg], axis=1)
         
-        # Second is the point-to-point spatiotemporal loss 
         # 'traj_repr' shape (batch_size, trg_traj_len, k)
-        # 'gt_len' shape (batch_size, traj_len, 1). 
-        # 'out_traj' shape (batch_size, traj_len, k+1)
-        out_traj = Concatenate()([traj_repr, gt_len])  
+        out_traj = TimeDistributed(Dense(k, activation = 'softmax'))(traj_repr)
         
-        # Third is the pattern loss 
         # 'patt_repr' shape (batch_size, trg_traj_len, 2)
-        # 'gt_patt_len' shape (batch_size, traj_len, 1). 
-        # 'out_patt' shape (batch_size, traj_len, 3). 
-        out_patt = Concatenate()([patt_repr, gt_patt_len])
-         
+        out_patt = TimeDistributed(Dense(2))(patt_repr)
+        
         # Create model 
         model = Model(inputs = inputs, outputs = [out_repr, out_traj, out_patt])
         self.model = model 

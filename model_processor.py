@@ -137,7 +137,7 @@ class ModelProcessor():
         y_pred_weights = y_pred[:,:,:-1]
         
         # 'y_true' shape (batch_size, traj_len, k+2)
-        y_true_weights = y_true[:,:,:-2]
+        y_true_weights = y_true
         
         # Create the boolean mask to filter out nan values in y_true_weights 
         bool_finite = tf.math.is_finite(y_true_weights) 
@@ -169,7 +169,7 @@ class ModelProcessor():
         y_true_patt_s = y_true[:,:,-2]
         y_true_patt_t = y_true[:,:,-1]
         
-        # 'y_pred_patt' shape (batch_size, trg_traj_len, 3)
+        # 'y_pred_patt' shape (batch_size, trg_traj_len, 2)
         # 'y_pred_patt_s' shape (batch_size, traj_len, 1). 
         # 'y_pred_patt_t' shape (batch_size, traj_len, 1). 
         y_pred_patt_s = y_pred[:,:,0]

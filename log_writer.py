@@ -1,5 +1,6 @@
 """This module handles the writing of the result log"""
 
+import datetime 
 import pathlib 
 import shutil 
 
@@ -12,6 +13,8 @@ class LogWriter():
         """
         output_path = output_dir + "/log.txt"
         with open(output_path, 'w+') as log_file: 
+            log_file.write("Finish datetime: " + str(datetime.datetime.now()))
+            log_file.write("\n")
             log_file.write("Training X Shape: " + str(training_x.shape))
             log_file.write("\n")
             log_file.write("Training y Shape: " + str(training_y.shape))
