@@ -15,7 +15,7 @@ class KerasFitGenerator(keras.utils.Sequence):
         self.batch_size = batch_size
         
     def __len__(self):
-        return int(np.floor(self.X.shape[0] / self.batch_size))
+        return int(np.ceil(self.X.shape[0] / self.batch_size))
         
         
     def on_epoch_end(self):
@@ -26,8 +26,11 @@ class KerasFitGenerator(keras.utils.Sequence):
         
     
     def __getitem__(self, index):
-        X = self.X[index*self.batch_size:(index+1)*self.batch_size]
-        y = self.y[index*self.batch_size:(index+1)*self.batch_size]
+        batch_end = (index+1)*self.batch_size
+        if batch_end > len(self.X):
+            batch_end = len(self.X)
+        X = self.X[index*self.batch_size:batch_end]
+        y = self.y[index*self.batch_size:batch_end]
         
         
         # Preprocessing the data 
@@ -146,13 +149,16 @@ class KerasFitGenerator(keras.utils.Sequence):
         
 class KerasPredictGenerator(keras.utils.Sequence):
     """Generator for the prediction""" 
-    def __init__(self, X, batch_size):
+    def __init__(self, X, batch_size, traj_len):
         self.X = X
+        self.X = np.array([x[1] for x in self.X]) 
+        self.X = self.__pad_jagged_array(self.X, traj_len) 
+        self.X = self.X[:,:,0]
         self.batch_size = batch_size 
         
         
     def __len__(self):
-        return int(np.floor(self.X.shape[0] / self.batch_size))
+        return int(np.ceil(self.X.shape[0] / self.batch_size))
         
         
     def on_epoch_end(self):
@@ -162,18 +168,15 @@ class KerasPredictGenerator(keras.utils.Sequence):
         
     
     def __getitem__(self, index):
-        X = self.X[index*self.batch_size:(index+1)*self.batch_size]
-        # YOU WERE HERE 
-        # EACH ITEM IN X IS AN ARRAY OF SIZE 2 CONTAINING THE TRAJ ID (STRING)
-        # AND THEN THE TRAJECTORY ITSELF. 
-        # GATHER ONLY THE TRAJECTORIES, CALL __PAD_JAGGED_ARRAY AND RETURN. 
-        # AFTERWARDS, FINISH THE PREDICTION FUNCTION IN MODEL_PROCESSOR
-        print(X.shape) 
-        input("++++++++")
+        batch_end = (index+1)*self.batch_size
+        if batch_end > len(self.X):
+            batch_end = len(self.X)
+            
+        X = self.X[index*self.batch_size:batch_end]
         return X 
         
         
-    def __pad_jagged_array(self, in_array):
+    def __pad_jagged_array(self, in_array, traj_len):
         """
         Given an array, pad every array in axis 1 (i.e. 2nd dimension) to the 
         length of the longest axis-1-array from the whole input_array. The 
@@ -191,15 +194,11 @@ class KerasPredictGenerator(keras.utils.Sequence):
         """
         # Get important variables from in_array shapes 
         num_data = in_array.shape[0]
-        num_data_inner = in_array.shape[1]
-        max_len = max([len(y) for x in in_array for y in x])
         
         # Do the padding by creating an array of zeroes in the intended shape 
         # Then, we can perform addition to fill the relevant values in this 
         # array with the values from in_array 
-        final = np.zeros((num_data,num_data_inner,max_len,1))
-
-        for i in range(len(in_array)):
-            for j, row in enumerate(in_array[i]):
-                final[i][j, :len(row)] += row 
+        final = np.zeros((num_data,traj_len,1))
+        for j, row in enumerate(in_array):
+            final[j, :len(row)] += row 
         return final 

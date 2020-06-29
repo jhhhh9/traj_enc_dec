@@ -1,5 +1,6 @@
 """This module handles the processing of the input arguments to the program"""
 
+import ast 
 import configparser
 import os 
 
@@ -26,6 +27,7 @@ class ArgProcessor():
         self.test_q_path = config['DIRECTORY']['TestQPath']
         self.topk_id_path = config['DIRECTORY']['TopKIDPath']
         self.topk_weights_path = config['DIRECTORY']['TopKWeightsPath']
+        self.output_directory = config['DIRECTORY']['OutputDirectory']
         
         self.batch_size = int(config['TRAINING']['BatchSize'])
         self.triplet_margin = float(config['TRAINING']['TripletMargin'])
@@ -39,6 +41,9 @@ class ArgProcessor():
         self.traj_repr_size = int(config['MODEL']['TrajReprSize'])
         self.bidirectional = bool(config['MODEL']['Bidirectional'])
         self.use_attention = bool(config['MODEL']['UseAttention'])
+        
+        self.ks = ast.literal_eval(config['PREDICTION']['KS'])
+        self.ks.sort()
         
         # Check if all the inputs files are valid files 
         if not os.path.isfile(self.training_x_path):
@@ -57,6 +62,9 @@ class ArgProcessor():
             raise IOError("'" + self.topk_id_path + "' is not a valid file")
         if not os.path.isfile(self.topk_weights_path):
             raise IOError("'" + self.topk_weights_path + "' is not a valid file")
+        if not os.path.isdir(self.output_directory):
+            print("Output director does not exist. Creating...")
+            os.makedirs(self.output_directory)
             
         # Check numerical features 
         if self.batch_size <= 0:
@@ -71,4 +79,9 @@ class ArgProcessor():
             raise ValueError("EmbeddingSize must be greater than 0")
         if self.embedding_vocab_size <= 0:
             raise ValueError("EmbeddingVocabSize must be greater than 0")
+        for k in self.ks:
+            if not isinstance(k, int):
+                raise ValueError("The values in KS must all be integers")
+            if k < 1:
+                raise ValueError("K must not be 0 or negative") 
         

@@ -3,7 +3,9 @@ This module handles tasks related to the Keras models except the creation.
 Tasks such as the training and testing of the models are done here. 
 """
 
+from scipy.spatial import KDTree 
 import copy 
+import numpy as np 
 import tensorflow as tf 
 import tensorflow.keras.backend as K 
 
@@ -34,25 +36,51 @@ class ModelProcessor():
                   epochs = epochs) 
 
 
-    def model_predict(self, model, predict_generator):
+    def model_evaluate(self, model, data_generator_q, data_generator_gt, 
+                       label_q, label_gt, ks):
         """
-        Use the provided model to do predictions
+        Evaulate the model's performance.
         
         Args:
             model: (keras model) The model to be used for the prediction 
-            predict_generator: (keras generator) The data generator for the 
-                                prediction data
-            
-        Returns 
-            A numpy array containing the output prediction 
+            data_generator_q: (keras generator) The generator for the query data
+            data_generator_gt : (keras generator) The generator for the ground 
+                                 truth data 
+            label_q: (numpy array) The labels for the query data 
+            label_gt: (numpy array) The labels for the ground truth data 
+            ks: (list of integers) Top-k's for the prediction 
+        Returns: 
+            TODO 
         """
-        print("MODEL PREDICT NOT IMPLEMENTED YET")
-        assert False 
-        predictions = model.predict(predict_generator)
-        print(predictions.shape)
-        # TEST HERE 
-        input("====")
-        return predictions
+        # Perform the prediction for the query and ground truth 
+        prediction_q = model.predict(data_generator_q)
+        prediction_gt = model.predict(data_generator_gt)
+        
+        # Flatten the representation for each trajectory in q and gt 
+        q_shape = prediction_q.shape 
+        gt_shape = prediction_gt.shape
+        prediction_q = prediction_q.reshape((q_shape[0], q_shape[1] * q_shape[2]))
+        prediction_gt = prediction_gt.reshape((gt_shape[0], 
+                                               gt_shape[1] * gt_shape[2]))
+        assert len(label_q) == len(prediction_q)
+                                        
+        # Builds the KDtree out of the ground truth trajectories 
+        gt_tree = KDTree(prediction_gt)
+        
+        # Iterate through each of the query trajectories to query the KDTree 
+        # First case is the top-k ranking. 
+        if len(ks) > 0:
+            all_k_hit = []
+            for i in range(len(prediction_q)):
+                one_q = prediction_q[i]
+                q_id = label_q[i] 
+                q_knn = gt_tree.query(one_q, k = max(ks))[1]
+                k_hit = np.array([q_id in q_knn[:x] for x in ks])
+                all_k_hit.append(k_hit)
+            all_k_hit = np.array(all_k_hit) 
+            all_hit_rates = np.sum(all_k_hit, axis=0) / all_k_hit.shape[0]
+        return all_hit_rates
+
 
     def repr_loss(self, margin):
         """
@@ -145,7 +173,7 @@ class ModelProcessor():
         # 'y_pred_patt_s' shape (batch_size, traj_len, 1). 
         # 'y_pred_patt_t' shape (batch_size, traj_len, 1). 
         y_pred_patt_s = y_pred[:,:,0]
-        y_pred_patt_t = y_pred[:,:,1]
+        y_pred_patt_t = y_pred[:,:,1] 
         
         # Create the boolean mask to filter out nan values in
         bool_finite_s = tf.math.is_finite(y_true_patt_s) 
@@ -163,11 +191,3 @@ class ModelProcessor():
         dist_t = K.mean(K.abs(y_true_patt_t - y_pred_patt_t))
         dist_st = dist_s + dist_t
         return dist_st
-        
-        
-    def model_predict(self, model, data_generator):
-        """
-        Predict 
-        """
-        return None 
-        #prediction = model.predict_generator(data_generator)

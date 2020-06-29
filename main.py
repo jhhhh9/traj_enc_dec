@@ -2,12 +2,14 @@
 
 from argparse import ArgumentParser 
 import datetime 
+import numpy as np 
 import time 
 
 from arg_processor import ArgProcessor
 from dnn_model import STSeqModel
 from file_reader import FileReader
 from keras_data_generators import KerasFitGenerator, KerasPredictGenerator
+from log_writer import LogWriter 
 from model_processor import ModelProcessor
 from traj_processor import TrajProcessor 
 
@@ -67,14 +69,38 @@ def main():
     model_processor = ModelProcessor()  
     triplet_margin = arg_processor.triplet_margin
     epochs = arg_processor.epochs 
-    #model_processor.model_train(stseqmodel.model, epochs, 
-    #                            train_gen, val_gen, triplet_margin)
-
-    # Use the trained encoder for the prediction 
+    train_start = time.time()
+    model_processor.model_train(stseqmodel.model, epochs,  
+                                train_gen, val_gen, triplet_margin)
+    train_time = time.time() - train_start 
+                                
+    # Perform prediction on the model
+    model_processor = ModelProcessor()  
     pred_model = stseqmodel.encoder.model
-    pred_gen = KerasPredictGenerator(test_q, batch_size)
-    predictions = model_processor.model_predict(pred_model, )
-
+    # Get the longest trajectory length from q and gt 
+    len_q = max([len(x[1]) for x in test_q])
+    len_gt = max([len(x[1]) for x in test_gt])
+    max_len = max([len_q, len_gt])
+    pred_gen_q = KerasPredictGenerator(test_q, batch_size, max_len)
+    pred_gen_gt = KerasPredictGenerator(test_gt, batch_size, max_len)
+    label_q = np.array([int(x[0]) for x in test_q])
+    label_gt = np.array([int(x[0]) for x in test_gt])
+    ks = arg_processor.ks
+    predict_start = time.time()
+    results = model_processor.model_evaluate(pred_model, pred_gen_q,
+                                             pred_gen_gt, label_q, 
+                                             label_gt, ks)
+    predict_time = time.time() - predict_start
+    
+    # Write the results to a file 
+    output_directory = arg_processor.output_directory
+    log_writer = LogWriter()
+    log_writer.write_results(output_directory, training_x, training_y, 
+                             validation_x, validation_y, test_gt, test_q, 
+                             topk_id, topk_weights, train_time, predict_time, 
+                             ks, results)
+    # Also make a copy of the input .ini file 
+    log_writer.copy_ini_file(ini_path, output_directory)
     
 if __name__ == "__main__":
     start_dt = datetime.datetime.now()

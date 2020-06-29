@@ -92,7 +92,7 @@ class Encoder():
             embedding: (keras model) The embedding layer 
             gru: (keras model) The stacked GRU model 
         """
-        inputs = Input((in_traj_len,))
+        inputs = Input((None,))
         embedded = embedding(inputs) 
         outputs = gru(embedded)
         model = Model(inputs = inputs, outputs = outputs) 
@@ -325,17 +325,17 @@ class STSeqModel():
         ## Lambda layers to split the inputs. 
         # 'gt' shape (batch_size, traj_len, 1). 
         # Represents ground truth trajectory.
-        gt = Lambda(lambda x:x[:,0,:,:])(inputs)
+        gt = Lambda(lambda x:x[:,0,:,0])(inputs)
         gt = Masking(mask_value = 0)(gt) 
         
         # 'q' shape (batch_size, traj_len, 1). 
         # Represents the query trajectory. 
-        q = Lambda(lambda x:x[:,1,:,:])(inputs)
+        q = Lambda(lambda x:x[:,1,:,0])(inputs)
         q = Masking(mask_value = 0)(q) 
         
         # 'neg' shape (batch_size, traj_len, 1). 
         # Represents the negative trajectory. 
-        neg = Lambda(lambda x:x[:,2,:,:])(inputs)
+        neg = Lambda(lambda x:x[:,2,:,0])(inputs)
         neg = Masking(mask_value = 0)(neg) 
         
         # 'gt_patt_s' shape (batch_size, traj_len, 1).
