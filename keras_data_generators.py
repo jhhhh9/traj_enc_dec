@@ -141,6 +141,7 @@ class KerasFitGenerator(keras.utils.Sequence):
         # Then, we can perform addition to fill the relevant values in this 
         # array with the values from in_array 
         final = np.zeros((num_data,num_data_inner,max_len,1))
+        
         for i in range(len(in_array)):
             for j, row in enumerate(in_array[i]):
                 final[i][j, :len(row)] += row 

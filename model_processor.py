@@ -36,34 +36,52 @@ class ModelProcessor():
                   epochs = epochs) 
 
 
-    def model_evaluate(self, model, data_generator_q, data_generator_gt, 
-                       label_q, label_gt, ks):
+    def model_evaluate(self, model, all_q, all_gt, ks):
         """
         Evaulate the model's performance.
         
         Args:
             model: (keras model) The model to be used for the prediction 
-            data_generator_q: (keras generator) The generator for the query data
-            data_generator_gt : (keras generator) The generator for the ground 
-                                 truth data 
-            label_q: (numpy array) The labels for the query data 
-            label_gt: (numpy array) The labels for the ground truth data 
+            all_q: (numpy array) Array containing all query data 
+            all_gt: (numpy array) Array containing all ground truth data 
             ks: (list of integers) Top-k's for the prediction 
-        Returns: 
-            TODO 
-        """
-        # Perform the prediction for the query and ground truth 
-        prediction_q = model.predict(data_generator_q)
-        prediction_gt = model.predict(data_generator_gt)
         
-        # Flatten the representation for each trajectory in q and gt 
-        q_shape = prediction_q.shape 
+        Returns: 
+            The hit rates for all given k 
+        """
+        # Remove duplicate ground truths and create dictionaries to find out 
+        # the matching ground truth given a query. We need this because we 
+        # cannot use the trajectory IDs in the KDtree we're going to create; 
+        # we can only use the position of the trajectories we feed into the 
+        # KDTree. So, we need to find a way to map the ID to the positions. 
+        id_to_pos_dict = {}
+        gt_dedup = []
+        i = 0
+        for gt in all_gt:
+            if gt[0] not in id_to_pos_dict:
+                id_to_pos_dict[gt[0]] = i
+                gt_dedup.append(gt[1])
+                i += 1
+        
+        
+        # Smothing out the jagged q and gt traj arrays 
+        q_array = np.array([x[1] for x in all_q])
+        q_ids = [x[0] for x in all_q]
+        gt_dedup = np.array(gt_dedup)
+        max_gt_len = max([len(x) for x in gt_dedup])
+        max_q_len = max([len(x) for x in q_array])
+        max_len = max([max_gt_len, max_q_len])
+        gt_dedup = self.__pad_jagged_array(gt_dedup, max_len)
+        q_array = self.__pad_jagged_array(q_array, max_len)
+        
+        # Perform the prediction for the ground truth  
+        prediction_gt = model.predict(gt_dedup)
+        
+        # Flatten the representation for each trajectory in  gt 
         gt_shape = prediction_gt.shape
-        prediction_q = prediction_q.reshape((q_shape[0], q_shape[1] * q_shape[2]))
         prediction_gt = prediction_gt.reshape((gt_shape[0], 
                                                gt_shape[1] * gt_shape[2]))
-        assert len(label_q) == len(prediction_q)
-                                        
+        
         # Builds the KDtree out of the ground truth trajectories 
         gt_tree = KDTree(prediction_gt)
         
@@ -71,14 +89,26 @@ class ModelProcessor():
         # First case is the top-k ranking. 
         if len(ks) > 0:
             all_k_hit = []
-            for i in range(len(prediction_q)):
-                one_q = prediction_q[i]
-                q_id = label_q[i] 
-                q_knn = gt_tree.query(one_q, k = max(ks))[1]
-                k_hit = np.array([q_id in q_knn[:x] for x in ks])
+            for i in range(len(q_array)):
+                # Get the q's representation 
+                one_q = model.predict(np.array([q_array[i]]))
+                one_q_shape = one_q.shape
+                one_q = one_q.reshape((one_q_shape[0], 
+                                       one_q_shape[1] * one_q_shape[2]))
+                                       
+                # Get the ID and find the position of the corresponding ground 
+                # truth trajectory in the KDTree 
+                q_id = q_ids[i]
+                gt_pos = id_to_pos_dict[q_id]
+                q_knn = gt_tree.query(one_q, k = max(ks))[1][0]
+                
+                # Check if the top-k hits are achieved 
+                k_hit = np.array([gt_pos in q_knn[:x] for x in ks])
                 all_k_hit.append(k_hit)
             all_k_hit = np.array(all_k_hit) 
             all_hit_rates = np.sum(all_k_hit, axis=0) / all_k_hit.shape[0]
+        else: 
+            assert False, "Non top-k ranking not implemented"
         return all_hit_rates
 
 
@@ -191,3 +221,31 @@ class ModelProcessor():
         dist_t = K.mean(K.abs(y_true_patt_t - y_pred_patt_t))
         dist_st = dist_s + dist_t
         return dist_st
+        
+        
+    def __pad_jagged_array(self, in_array, traj_len):
+        """
+        Given an array, pad every array in axis 1 (i.e. 2nd dimension) to the 
+        length of the longest axis-1-array from the whole input_array. The 
+        type of the elements is float and post-padding is used. 
+        
+        Args:
+            in_array: (numpy array) 4D numpy array. All the values within
+                       the array must be a type in which arithmetic addition can 
+                       be applied to. 
+        
+        Returns:
+            in_array after the padding. The padding turns a jagged array to a 
+            non-jagged array, which can now be fed to the deep neural network 
+            model. 
+        """
+        # Get important variables from in_array shapes 
+        num_data = in_array.shape[0]
+        
+        # Do the padding by creating an array of zeroes in the intended shape 
+        # Then, we can perform addition to fill the relevant values in this 
+        # array with the values from in_array 
+        final = np.zeros((num_data,traj_len,1))
+        for j, row in enumerate(in_array):
+            final[j, :len(row)] += row 
+        return final 

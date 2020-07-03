@@ -36,6 +36,7 @@ def main():
     topk_id = file_reader.read_npy(arg_processor.topk_id_path)
     topk_weights = file_reader.read_npy(arg_processor.topk_weights_path)
     
+    
     # Set the GPU resource
     gpu_used = arg_processor.gpu_used 
     gpu_memory = arg_processor.gpu_memory
@@ -78,15 +79,9 @@ def main():
     len_q = max([len(x[1]) for x in test_q])
     len_gt = max([len(x[1]) for x in test_gt])
     max_len = max([len_q, len_gt])
-    pred_gen_q = KerasPredictGenerator(test_q, batch_size, max_len)
-    pred_gen_gt = KerasPredictGenerator(test_gt, batch_size, max_len)
-    label_q = np.array([int(x[0]) for x in test_q])
-    label_gt = np.array([int(x[0]) for x in test_gt])
     ks = arg_processor.ks
     predict_start = time.time()
-    results = model_processor.model_evaluate(pred_model, pred_gen_q,
-                                             pred_gen_gt, label_q, 
-                                             label_gt, ks)
+    results = model_processor.model_evaluate(pred_model, test_q, test_gt, ks)
     predict_time = time.time() - predict_start
     
     # Write the results to a file 

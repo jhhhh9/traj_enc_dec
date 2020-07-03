@@ -197,7 +197,8 @@ class PatternDecoder():
         # inputs_trg (batch_size, trg_traj_len, 2)
         # embedded_trg (batch_size, trg_traj_len, src_feature_size)
         # Learns features based on inputs_trg. 
-        embedded_trg = TimeDistributed(Dense(src_feature_size))(inputs_trg)
+        embedded_trg = TimeDistributed(Dense(src_feature_size, 
+                                             activation = 'relu'))(inputs_trg)
         
         # embedded_src (batch_size, src_traj_len, src_feature_size)
         # embedded_trg (batch_size, trg_traj_len, src_feature_size)
@@ -388,10 +389,10 @@ class STSeqModel():
         out_repr = K.stack([enc_q, enc_gt, enc_neg], axis=1)
         
         # 'traj_repr' shape (batch_size, trg_traj_len, k)
-        out_traj = TimeDistributed(Dense(k, activation = 'softmax'))(traj_repr)
+        out_traj = TimeDistributed(Dense(k, activation = 'relu'))(traj_repr)
         
         # 'patt_repr' shape (batch_size, trg_traj_len, 2)
-        out_patt = TimeDistributed(Dense(2))(patt_repr)
+        out_patt = TimeDistributed(Dense(2, activation = 'relu'))(patt_repr)
         
         # Create model 
         model = Model(inputs = inputs, outputs = [out_repr, out_traj, out_patt])
