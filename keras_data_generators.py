@@ -26,6 +26,61 @@ class KerasFitGenerator(keras.utils.Sequence):
         
     
     def __getitem__(self, index):
+        # Get current batch 
+        batch_end = (index+1)*self.batch_size
+        if batch_end > len(self.X):
+            batch_end = len(self.X)
+        X = self.X[index*self.batch_size:batch_end]
+        y = self.y[index*self.batch_size:batch_end]
+        
+        # Get next batch. If next batch is not a full batch, get the first 
+        next_batch_end = (index+2)*self.batch_size
+        if next_batch_end > len(self.X):
+            X_next = self.X[:self.batch_size]
+        else:
+            X_next_start = (index + 1) * self.batch_size
+            X_next_end = (index + 2) * self.batch_size
+            X_next = self.X[X_next_start : X_next_end]
+
+        # We use the next batch to get a sample of negative trajectories. 
+        # This works the same as randomizing the negative trajectories simply 
+        # because we randomize the data after every epoch.
+        X_neg = X_next[:len(X),0]
+        X_neg = X_neg.reshape(len(X_neg), 1)
+        X_1 = np.concatenate((X[:,:2], X_neg), axis=1)
+        X_2 = X[:,2:]
+        X = np.concatenate((X_1, X_2), axis=1)
+        
+        # Preprocessing the data 
+        # First, pad X so that it's no longer a jagged array 
+        X = self.__pad_jagged_array(X) 
+        
+        # Splits y into three 
+        # y_traj consists of the trajectory after the topk lookup 
+        # Shape is (num_traj, traj_len, k)
+        traj_len = X.shape[2]
+        y_traj = y[:,0]
+        y_traj = self.__lookup_topk(y_traj, self.topk_weights)
+        y_traj = self.__pad_nan(y_traj, traj_len)
+        
+        # y_s_patt consists of the trajectory spatial pattern 
+        # Shape is (num_traj, traj_len, 1) 
+        y_s_patt = y[:,1]
+        y_s_patt = self.__pad_nan(y_s_patt, traj_len)
+        
+        # y_s_patt consists of the trajectory temporal pattern 
+        # Shape is (num_traj, traj_len, 1)  
+        y_t_patt = y[:,2]
+        y_t_patt = self.__pad_nan(y_t_patt, traj_len) 
+        
+        # Concatenate y_traj, y_s_patt, and y_t_patt
+        y = np.concatenate([y_traj, y_s_patt, y_t_patt], axis = 2)
+        return X, y
+        
+
+    """
+        #OLD GETITEM
+        def __getitem__(self, index):
         batch_end = (index+1)*self.batch_size
         if batch_end > len(self.X):
             batch_end = len(self.X)
@@ -58,7 +113,8 @@ class KerasFitGenerator(keras.utils.Sequence):
         # Concatenate y_traj, y_s_patt, and y_t_patt
         y = np.concatenate([y_traj, y_s_patt, y_t_patt], axis = 2)
         return X, y
-        
+    """
+
 
     def __lookup_topk(self, in_array, topk_weights):
         """
