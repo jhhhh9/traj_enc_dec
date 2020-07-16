@@ -40,20 +40,23 @@ def main():
     log_writer = LogWriter()
     if is_training: 
         # Reads the input .npy files for the data and the topk trajectories 
-        training_x = file_reader.read_npy(arg_processor.training_x_path)
-        training_y = file_reader.read_npy(arg_processor.training_y_path)
-        validation_x = file_reader.read_npy(arg_processor.validation_x_path)
-        validation_y = file_reader.read_npy(arg_processor.validation_y_path) 
-        topk_weights = file_reader.read_npy(arg_processor.topk_weights_path)
+        print("Reading training data...")
+        training_x = file_reader.read_data(arg_processor.training_x_path)
+        training_y = file_reader.read_data(arg_processor.training_y_path)
+        validation_x = file_reader.read_data(arg_processor.validation_x_path)
+        validation_y = file_reader.read_data(arg_processor.validation_y_path) 
+        topk_weights = file_reader.read_data(arg_processor.topk_weights_path)
         
         # Create the fit generator 
+        print("Creating data generators...")
         batch_size = arg_processor.batch_size
         train_gen = KerasFitGenerator(training_x, training_y, topk_weights, 
                                       batch_size) 
         val_gen = KerasFitGenerator(validation_x, validation_y, topk_weights,
-                                   batch_size)
+                                    batch_size)
         
         # Create the model 
+        print("Creating model...")
         embedding_size = arg_processor.embedding_size
         traj_repr_size = arg_processor.traj_repr_size
         gru_cell_size = arg_processor.gru_cell_size
@@ -72,6 +75,7 @@ def main():
                                 use_attention, k)
         
         # Train the model 
+        print("Training model...")
         triplet_margin = arg_processor.triplet_margin
         epochs = arg_processor.epochs 
         output_directory = arg_processor.output_directory
@@ -89,18 +93,21 @@ def main():
     if is_evaluating:
         # Perform prediction on the model
         # Get the data 
+        print("Reading test dat...")
         test_gt = file_reader.read_npy(arg_processor.test_gt_path)
         test_q = file_reader.read_npy(arg_processor.test_q_path)
         
         
         # Load the model 
-        #pred_model = stseqmodel.encoder.model
+        print("Loading model...")
         model_path = arg_processor.model_path
         triplet_margin = arg_processor.triplet_margin
         pred_model = model_processor.load_model(model_path, triplet_margin)
         encoder = pred_model.get_layer('model_1')
         ks = arg_processor.ks
         use_mean_rank = arg_processor.use_mean_rank
+        
+        print("Evaluating model...")
         predict_start = time.time()
         results = model_processor.model_evaluate(encoder, test_q, test_gt, ks,
                                                  use_mean_rank)

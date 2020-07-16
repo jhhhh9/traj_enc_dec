@@ -120,7 +120,8 @@ class ModelProcessor():
             all_rank = []
             for i in range(len(q_array)):
                 # Get the q's representation 
-                one_q = model.predict(np.array([q_array[i]]))
+                print("Evaluating trajectory %d out of %d." % (i+1,len(q_array)))
+                one_q = model.predict(np.array([q_array[i]])) 
                 one_q_shape = one_q.shape
                 one_q = one_q.reshape((one_q_shape[0], 
                                        one_q_shape[1] * one_q_shape[2]))

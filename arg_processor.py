@@ -55,24 +55,36 @@ class ArgProcessor():
         self.gpu_memory = float(config['GPU']['GPUMemory'])
         
         # Check if all the inputs files are valid files 
-        if not os.path.isfile(self.training_x_path):
-            raise IOError("'" + self.training_x_path + "' is not a valid file")
-        if not os.path.isfile(self.training_y_path):
-            raise IOError("'" + self.training_y_path + "' is not a valid file")
-        if not os.path.isfile(self.validation_x_path):
-            raise IOError("'" + self.validation_x_path + "' is not a valid file")
-        if not os.path.isfile(self.validation_y_path):
-            raise IOError("'" + self.validation_y_path + "' is not a valid file")
-        if not os.path.isfile(self.test_gt_path):
-            raise IOError("'" + self.test_gt_path + "' is not a valid file")
-        if not os.path.isfile(self.test_q_path):
-            raise IOError("'" + self.test_q_path + "' is not a valid file")
+        if not (os.path.isfile(self.training_x_path) or 
+                os.path.isdir(self.training_x_path)):
+            raise IOError("%s is not a valid file or directory" % 
+                           self.training_x_path)
+        if not (os.path.isfile(self.training_y_path) or 
+                os.path.isdir(self.training_y_path)):
+            raise IOError("%s is not a valid file or directory" % 
+                           self.training_y_path)
+        if not (os.path.isfile(self.validation_x_path) or 
+                os.path.isdir(self.validation_x_path)):
+            raise IOError("%s is not a valid file or directory" % 
+                           self.validation_x_path)
+        if not (os.path.isfile(self.validation_y_path) or 
+                os.path.isdir(self.validation_y_path)):
+            raise IOError("%s is not a valid file or directory" % 
+                           self.validation_y_path)
+        if not (os.path.isfile(self.test_gt_path) or 
+                os.path.isdir(self.test_gt_path)):
+            raise IOError("%s is not a valid file or directory" % 
+                           self.test_gt_path)
+        if not (os.path.isfile(self.test_q_path) or 
+                os.path.isdir(self.test_q_path)):
+            raise IOError("%s is not a valid file or directory" % 
+                           self.test_q_path)
         if not os.path.isfile(self.topk_id_path):
             raise IOError("'" + self.topk_id_path + "' is not a valid file")
         if not os.path.isfile(self.topk_weights_path):
             raise IOError("'" + self.topk_weights_path + "' is not a valid file")
         if not os.path.isdir(self.output_directory):
-            print("Output director does not exist. Creating...")
+            print("Output directory does not exist. Creating...")
             os.makedirs(self.output_directory) 
             
         # Check numerical features 
