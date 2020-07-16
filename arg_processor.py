@@ -32,6 +32,8 @@ class ArgProcessor():
         self.batch_size = int(config['TRAINING']['BatchSize'])
         self.triplet_margin = float(config['TRAINING']['TripletMargin'])
         self.epochs = int(config['TRAINING']['Epochs'])
+        self.checkpoint_model = bool(config['TRAINING']['CheckpointModel'])
+        self.patience = int(config['TRAINING']['Patience'])
         
         self.gru_cell_size = int(config['MODEL']['GRUCellSize'])
         self.num_gru_layers = int(config['MODEL']['NumGruLayers'])
@@ -43,6 +45,7 @@ class ArgProcessor():
         self.use_attention = bool(config['MODEL']['UseAttention'])
         
         self.ks = ast.literal_eval(config['PREDICTION']['KS'])
+        self.use_mean_rank = bool(config['PREDICTION']['UseMeanRank'])
         self.ks.sort()
         
         self.gpu_used = ast.literal_eval(config['GPU']['GPUUsed'])
@@ -82,6 +85,8 @@ class ArgProcessor():
             raise ValueError("EmbeddingSize must be greater than 0")
         if self.embedding_vocab_size <= 0:
             raise ValueError("EmbeddingVocabSize must be greater than 0")
+        if len(self.ks) == 0:
+            raise ValueError("KS must contain at least one integer.")  
         for k in self.ks:
             if not isinstance(k, int):
                 raise ValueError("The values in KS must all be integers")
@@ -92,4 +97,6 @@ class ArgProcessor():
                 raise ValueError("The values in GPUUsed must all be integers")
         if self.gpu_memory <= 0:
             raise ValueError("GPUMemory must be a positive value")
+        if self.patience < 0:
+            raise valueError("Patience must not be a negative integer")
         

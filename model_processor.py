@@ -4,6 +4,7 @@ Tasks such as the training and testing of the models are done here.
 """
 
 from scipy.spatial import KDTree 
+from tensorflow.keras import callbacks 
 import copy 
 import numpy as np 
 import tensorflow as tf 
@@ -15,9 +16,10 @@ class ModelProcessor():
     prediction.
     """
     def model_train(self, model, epochs, train_generator, val_generator, 
-                    triplet_margin):
+                    triplet_margin, output_directory, checkpoint_model, 
+                    patience):
         """
-        Trains the provided model.
+        Trains the provided model and save the best performing model. 
         
         Args:
             model: (keras model) The model to be trained 
@@ -26,17 +28,41 @@ class ModelProcessor():
                               training.
             val_generator: (keras generator) The data generator for the 
                             validation. 
-            triplet_margin: (float) Margin for the triplet loss 
+            triplet_margin: (float) Margin for the triplet loss
+            output_directory: (string) Output directory to save the best model 
+            checkpoint_model: (boolean) Whether or not the model checkpointing 
+                               is used. 
+            patience: (integer) Terminate training if the model's performance 
+                       does not improve after this many epochs. 
         """
+        # Create the callbacks. 
+        # EarlStopping
+        all_callbacks = []
+        early_stopping = callbacks.EarlyStopping(monitor = 'val_loss', 
+                                                 min_delta = 0, 
+                                                 patience = patience,
+                                                 restore_best_weights = True)
+        all_callbacks.append(early_stopping)
+        
+        # ModelCheckpoint 
+        model_path = output_directory + "/checkpoint"
+        if checkpoint_model:
+            model_checkpoint = callbacks.ModelCheckpoint(filepath = model_path,
+                                                         monitor = "val_loss",
+                                                         save_best_only = True, 
+                                                         save_weights_only=False)
+            all_callbacks.append(model_checkpoint)
+
+        # Compile and train 
         model.compile(optimizer = "adam", 
                       loss = [self.repr_loss(triplet_margin),
                               self.point2point_loss,
                               self.patt_loss])
         model.fit(train_generator, validation_data = val_generator,
-                  epochs = epochs) 
+                  epochs = epochs, callbacks = all_callbacks) 
 
 
-    def model_evaluate(self, model, all_q, all_gt, ks):
+    def model_evaluate(self, model, all_q, all_gt, ks, use_mean_rank):
         """
         Evaulate the model's performance.
         
@@ -44,7 +70,9 @@ class ModelProcessor():
             model: (keras model) The model to be used for the prediction 
             all_q: (numpy array) Array containing all query data 
             all_gt: (numpy array) Array containing all ground truth data 
-            ks: (list of integers) Top-k's for the prediction 
+            ks: (list of integers) Top-k's for the prediction
+            use_mean_rank: (boolean) Whether or not to report the mean predicted
+                            rank. 
         
         Returns: 
             The hit rates for all given k 
@@ -62,7 +90,6 @@ class ModelProcessor():
                 id_to_pos_dict[gt[0]] = i
                 gt_dedup.append(gt[1])
                 i += 1
-        
         
         # Smothing out the jagged q and gt traj arrays 
         q_array = np.array([x[1] for x in all_q])
@@ -89,6 +116,7 @@ class ModelProcessor():
         # First case is the top-k ranking. 
         if len(ks) > 0:
             all_k_hit = []
+            all_rank = []
             for i in range(len(q_array)):
                 # Get the q's representation 
                 one_q = model.predict(np.array([q_array[i]]))
@@ -100,16 +128,26 @@ class ModelProcessor():
                 # truth trajectory in the KDTree 
                 q_id = q_ids[i]
                 gt_pos = id_to_pos_dict[q_id]
-                q_knn = gt_tree.query(one_q, k = max(ks))[1][0]
+                
+                if use_mean_rank:
+                    q_knn = gt_tree.query(one_q, k = len(prediction_gt))[1][0]
+                else:
+                    q_knn = gt_tree.query(one_q, k = max(ks))[1][0]
                 
                 # Check if the top-k hits are achieved 
                 k_hit = np.array([gt_pos in q_knn[:x] for x in ks])
                 all_k_hit.append(k_hit)
+                
+                # Get the actual rank if use_mean_rank is true 
+                if use_mean_rank:
+                    rank = np.where(q_knn==gt_pos)[0][0] + 1
+                    all_rank.append(rank) 
             all_k_hit = np.array(all_k_hit) 
             all_hit_rates = np.sum(all_k_hit, axis=0) / all_k_hit.shape[0]
-        else: 
-            assert False, "Non top-k ranking not implemented"
-        return all_hit_rates
+            mean_rank = None 
+            if use_mean_rank:
+                mean_rank = sum(all_rank)/len(all_rank) 
+        return [all_hit_rates, mean_rank]
 
 
     def repr_loss(self, margin):

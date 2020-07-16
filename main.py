@@ -67,25 +67,27 @@ def main():
     model_processor = ModelProcessor()  
     triplet_margin = arg_processor.triplet_margin
     epochs = arg_processor.epochs 
+    output_directory = arg_processor.output_directory
+    checkpoint_model = arg_processor.checkpoint_model
+    patience = arg_processor.patience
     train_start = time.time()
-    model_processor.model_train(stseqmodel.model, epochs,  
-                                train_gen, val_gen, triplet_margin)
+    model_processor.model_train(stseqmodel.model, epochs,  train_gen, val_gen, 
+                                triplet_margin, output_directory, 
+                                checkpoint_model, patience)
     train_time = time.time() - train_start 
+    
                                 
     # Perform prediction on the model
     model_processor = ModelProcessor()  
     pred_model = stseqmodel.encoder.model
-    # Get the longest trajectory length from q and gt 
-    len_q = max([len(x[1]) for x in test_q])
-    len_gt = max([len(x[1]) for x in test_gt])
-    max_len = max([len_q, len_gt])
     ks = arg_processor.ks
+    use_mean_rank = arg_processor.use_mean_rank
     predict_start = time.time()
-    results = model_processor.model_evaluate(pred_model, test_q, test_gt, ks)
+    results = model_processor.model_evaluate(pred_model, test_q, test_gt, ks,
+                                             use_mean_rank)
     predict_time = time.time() - predict_start
     
     # Write the results to a file 
-    output_directory = arg_processor.output_directory
     log_writer = LogWriter()
     log_writer.write_results(output_directory, training_x, training_y, 
                              validation_x, validation_y, test_gt, test_q, 

@@ -37,7 +37,10 @@ class LogWriter():
             log_file.write("\n")
             log_file.write("All k: " + str(ks))
             log_file.write("\n")
-            log_file.write("Top-k results: " + str(results))
+            log_file.write("Top-k results: " + str(results[0]))
+            if results[1] is not None:
+                log_file.write("\n")
+                log_file.write("Mean rank: " + str(results[1]))
         
         
     def copy_ini_file(self, ini_path, output_directory):
