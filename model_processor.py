@@ -3,6 +3,7 @@ This module handles tasks related to the Keras models except the creation.
 Tasks such as the training and testing of the models are done here. 
 """
 
+from keras import models 
 from scipy.spatial import KDTree 
 from tensorflow.keras import callbacks 
 import copy 
@@ -16,8 +17,7 @@ class ModelProcessor():
     prediction.
     """
     def model_train(self, model, epochs, train_generator, val_generator, 
-                    triplet_margin, output_directory, checkpoint_model, 
-                    patience):
+                    triplet_margin, output_directory, patience, model_path):
         """
         Trains the provided model and save the best performing model. 
         
@@ -34,6 +34,8 @@ class ModelProcessor():
                                is used. 
             patience: (integer) Terminate training if the model's performance 
                        does not improve after this many epochs. 
+            model_path: (string) The directory where the model checkpoint will 
+                         be output to. 
         """
         # Create the callbacks. 
         # EarlStopping
@@ -45,13 +47,12 @@ class ModelProcessor():
         all_callbacks.append(early_stopping)
         
         # ModelCheckpoint 
-        model_path = output_directory + "/checkpoint"
-        if checkpoint_model:
-            model_checkpoint = callbacks.ModelCheckpoint(filepath = model_path,
-                                                         monitor = "val_loss",
-                                                         save_best_only = True, 
-                                                         save_weights_only=False)
-            all_callbacks.append(model_checkpoint)
+        model_checkpoint = callbacks.ModelCheckpoint(filepath = model_path,
+                                                     monitor = "val_loss",
+                                                     save_best_only = True, 
+                                                     save_weights_only=False,
+                                                     mode='min')
+        all_callbacks.append(model_checkpoint)
 
         # Compile and train 
         model.compile(optimizer = "adam", 
@@ -150,6 +151,39 @@ class ModelProcessor():
         return [all_hit_rates, mean_rank]
 
 
+    def load_model(self, model_path, triplet_margin):
+        """
+        Loads the saved model 
+        
+        Args:
+            model_path: (string) Path to the saved model 
+        
+        Returns:
+            The loaded Keras model 
+        """
+        def triplet_loss(y_true, y_pred):
+            anc = y_pred[:,0,:,:]
+            pos = y_pred[:,1,:,:]
+            neg = y_pred[:,2,:,:]
+            pos_dist = K.sqrt(K.sum(K.square(anc-pos), axis=-1,keepdims=False))
+            neg_dist = K.sqrt(K.sum(K.square(anc-neg), axis=-1,keepdims=False))
+            const = K.constant(margin, dtype='float32')
+            dist = pos_dist - neg_dist + const 
+            dist = K.maximum(dist, 0)
+            dist_sum = K.mean(dist, 1)
+            return dist_sum
+        
+        repr_loss = self.repr_loss(triplet_margin)
+        p2p = self.point2point_loss
+        patt_loss = self.patt_loss
+        model = models.load_model(model_path, 
+                                  custom_objects={'repr_loss':repr_loss,
+                                                  'point2point_loss':p2p,
+                                                  'patt_loss':patt_loss,
+                                                  'triplet_loss':triplet_loss})
+        return model 
+
+
     def repr_loss(self, margin):
         """
         The representation loss takes the 
@@ -189,8 +223,8 @@ class ModelProcessor():
             dist_sum = K.mean(dist, 1)
             return dist_sum
         return triplet_loss 
-
-
+        
+    
     def point2point_loss(self, y_true, y_pred):
         """
         Calculates the loss function that compares the predicted vs true value 

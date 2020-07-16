@@ -19,6 +19,9 @@ class ArgProcessor():
         config.read(ini_path)
         
         # Reads the arguments 
+        self.is_training = config['MODE']['IsTraining']
+        self.is_evaluating = config['MODE']['IsEvaluating']
+        
         self.training_x_path = config['DIRECTORY']['TrainingXPath']
         self.training_y_path= config['DIRECTORY']['TrainingYPath']
         self.validation_x_path = config['DIRECTORY']['ValidationXPath']
@@ -29,17 +32,17 @@ class ArgProcessor():
         self.topk_weights_path = config['DIRECTORY']['TopKWeightsPath']
         self.output_directory = config['DIRECTORY']['OutputDirectory']
         
+        self.model_path = config['TRAINING']['ModelPath']
         self.batch_size = int(config['TRAINING']['BatchSize'])
         self.triplet_margin = float(config['TRAINING']['TripletMargin'])
         self.epochs = int(config['TRAINING']['Epochs'])
-        self.checkpoint_model = bool(config['TRAINING']['CheckpointModel'])
         self.patience = int(config['TRAINING']['Patience'])
         
         self.gru_cell_size = int(config['MODEL']['GRUCellSize'])
         self.num_gru_layers = int(config['MODEL']['NumGruLayers'])
         self.gru_dropout_ratio = float(config['MODEL']['GRUDropoutRatio'])
         self.embedding_size = int(config['MODEL']['EmbeddingSize'])
-        self.embedding_vocab_size = int(config['MODEL']['EmbeddingVocabSize'])
+        self.embedding_vocab_size = config['MODEL']['EmbeddingVocabSize']
         self.traj_repr_size = int(config['MODEL']['TrajReprSize'])
         self.bidirectional = bool(config['MODEL']['Bidirectional'])
         self.use_attention = bool(config['MODEL']['UseAttention'])
@@ -83,8 +86,14 @@ class ArgProcessor():
             raise ValueError("GRUDropoutRatio must be between 0 and 1 exclusive")
         if self.traj_repr_size <= 0:
             raise ValueError("EmbeddingSize must be greater than 0")
-        if self.embedding_vocab_size <= 0:
-            raise ValueError("EmbeddingVocabSize must be greater than 0")
+        if self.embedding_vocab_size.isdigit():
+            self.embedding_vocab_size = int(self.embedding_vocab_size)
+        else:
+            if self.embedding_vocab_size.lower() == "none":
+                self.embedding_vocab_size = None 
+            else: 
+                raise ValueError("EmbeddingVocabSize must be greater " +
+                                 "than 0, or the string 'None'")
         if len(self.ks) == 0:
             raise ValueError("KS must contain at least one integer.")  
         for k in self.ks:
@@ -99,4 +108,19 @@ class ArgProcessor():
             raise ValueError("GPUMemory must be a positive value")
         if self.patience < 0:
             raise valueError("Patience must not be a negative integer")
+            
+        # Other 
+        if self.is_training.lower() == 'true':
+            self.is_training = True 
+        elif self.is_training.lower() == 'false':
+            self.is_training = False 
+        else:
+            raise ValueError("IsTraining must either be 'true or 'false'")
+            
+        if self.is_evaluating.lower() == 'true':
+            self.is_evaluating = True 
+        elif self.is_evaluating.lower() == 'false':
+            self.is_evaluating = False 
+        else:
+            raise ValueError("IsEvaluating must either be 'true or 'false'")
         

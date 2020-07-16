@@ -43,6 +43,53 @@ class LogWriter():
                 log_file.write("Mean rank: " + str(results[1]))
         
         
+    def write_train_results(self, output_dir, training_x, training_y, 
+                            validation_x, validation_y, topk_id,topk_weights,
+                            train_time):
+        """
+        Prints the training log 
+        """
+        output_path = output_dir + "/log_train.txt"
+        with open(output_path, 'w+') as log_file: 
+            log_file.write("Finish datetime: " + str(datetime.datetime.now()))
+            log_file.write("\n")
+            log_file.write("Training X Shape: " + str(training_x.shape))
+            log_file.write("\n")
+            log_file.write("Training y Shape: " + str(training_y.shape))
+            log_file.write("\n")
+            log_file.write("Validation X Shape: " + str(validation_x.shape))
+            log_file.write("\n")
+            log_file.write("Validation y Shape: " + str(validation_y.shape))
+            log_file.write("\n")
+            log_file.write("Top-k ID Shape: " + str(topk_id.shape))
+            log_file.write("\n")
+            log_file.write("Top-k weights Shape: " + str(topk_weights.shape))
+            log_file.write("\n")
+            log_file.write("Total training time: " + str(train_time))
+            
+    
+    def write_eval_results(self, output_dir, test_gt, test_q, predict_time, ks, 
+                           results):
+        """
+        Prints the evaluation log 
+        """
+        output_path = output_dir + "/log_eval.txt"
+        with open(output_path, 'w+') as log_file: 
+            log_file.write("Finish datetime: " + str(datetime.datetime.now()))
+            log_file.write("Test GT Shape: " + str(test_gt.shape))
+            log_file.write("\n")
+            log_file.write("Test Q Shape: " + str(test_q.shape))
+            log_file.write("\n")
+            log_file.write("Total prediction time: " + str(predict_time))
+            log_file.write("\n")
+            log_file.write("All k: " + str(ks))
+            log_file.write("\n")
+            log_file.write("Top-k results: " + str(results[0]))
+            if results[1] is not None:
+                log_file.write("\n")
+                log_file.write("Mean rank: " + str(results[1]))
+
+
     def copy_ini_file(self, ini_path, output_directory):
         """
         Copies the input .ini file to the output directory 
