@@ -106,11 +106,13 @@ def main():
         encoder = pred_model.get_layer('model_1')
         ks = arg_processor.ks
         use_mean_rank = arg_processor.use_mean_rank
+        predict_batch_size = arg_processor.predict_batch_size
         
         print("Evaluating model...")
         predict_start = time.time()
         results = model_processor.model_evaluate(encoder, test_q, test_gt, ks,
-                                                 use_mean_rank)
+                                                 use_mean_rank, 
+                                                 predict_batch_size)
         predict_time = time.time() - predict_start
         
         # Write the results to a file 

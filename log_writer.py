@@ -76,6 +76,7 @@ class LogWriter():
         output_path = output_dir + "/log_eval.txt"
         with open(output_path, 'w+') as log_file: 
             log_file.write("Finish datetime: " + str(datetime.datetime.now()))
+            log_file.write("\n")
             log_file.write("Test GT Shape: " + str(test_gt.shape))
             log_file.write("\n")
             log_file.write("Test Q Shape: " + str(test_q.shape))

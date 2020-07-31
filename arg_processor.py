@@ -48,6 +48,7 @@ class ArgProcessor():
         self.use_attention = bool(config['MODEL']['UseAttention'])
         
         self.ks = ast.literal_eval(config['PREDICTION']['KS'])
+        self.predict_batch_size = int(config['PREDICTION']['PredictBatchSize'])
         self.use_mean_rank = bool(config['PREDICTION']['UseMeanRank'])
         self.ks.sort()
         
@@ -98,6 +99,10 @@ class ArgProcessor():
             raise ValueError("GRUDropoutRatio must be between 0 and 1 exclusive")
         if self.traj_repr_size <= 0:
             raise ValueError("EmbeddingSize must be greater than 0")
+        if self.predict_batch_size < 0:
+            raise ValueError("PredictBatchSize must be greater than 0. If " +
+                             "a batch size of 0 is provided, training is " + 
+                             "done on the full data at once.")
         if self.embedding_vocab_size.isdigit():
             self.embedding_vocab_size = int(self.embedding_vocab_size)
         else:

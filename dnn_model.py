@@ -92,10 +92,10 @@ class Encoder():
             embedding: (keras model) The embedding layer 
             gru: (keras model) The stacked GRU model 
         """
-        inputs = Input((None,), name='encoder_in')
+        inputs = Input((None,))
         embedded = embedding(inputs) 
-        outputs = gru(embedded, name='encoder_out')
-        model = Model(inputs = inputs, outputs = outputs, name = "encoder") 
+        outputs = gru(embedded)
+        model = Model(inputs = inputs, outputs = outputs) 
         self.model = model 
 
 
@@ -293,8 +293,7 @@ class EncoderDecoder():
         
         # Finished model 
         self.model = Model(inputs = [inputs_1, inputs_2, inputs_3], 
-                           outputs = [output_point, output_patt],
-                           name = "encoder_decoder")
+                           outputs = [output_point, output_patt])
         
 
 class STSeqModel():

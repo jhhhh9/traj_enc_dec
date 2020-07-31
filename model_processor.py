@@ -63,7 +63,8 @@ class ModelProcessor():
                   epochs = epochs, callbacks = all_callbacks) 
 
 
-    def model_evaluate(self, model, all_q, all_gt, ks, use_mean_rank):
+    def model_evaluate(self, model, all_q, all_gt, ks, use_mean_rank,
+                       predict_batch_size):
         """
         Evaulate the model's performance.
         
@@ -74,6 +75,7 @@ class ModelProcessor():
             ks: (list of integers) Top-k's for the prediction
             use_mean_rank: (boolean) Whether or not to report the mean predicted
                             rank. 
+            predict_batch_size: (integer) The batch size for the prediction 
         
         Returns: 
             The hit rates for all given k 
@@ -102,8 +104,11 @@ class ModelProcessor():
         gt_dedup = self.__pad_jagged_array(gt_dedup, max_len)
         q_array = self.__pad_jagged_array(q_array, max_len)
         
-        # Perform the prediction for the ground truth  
-        prediction_gt = model.predict(gt_dedup)
+        # Perform the prediction for the ground truth   
+        if predict_batch_size == 0:
+            prediction_gt = model.predict(gt_dedup)
+        else:
+            prediction_gt = model.predict(gt_dedup,batch_size=predict_batch_size)
         
         # Flatten the representation for each trajectory in  gt 
         gt_shape = prediction_gt.shape
