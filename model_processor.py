@@ -4,7 +4,7 @@ Tasks such as the training and testing of the models are done here.
 """
 
 from keras import models 
-from scipy.spatial import KDTree 
+from scipy.spatial import cKDTree 
 from tensorflow.keras import callbacks 
 import copy 
 import numpy as np 
@@ -85,6 +85,7 @@ class ModelProcessor():
         # cannot use the trajectory IDs in the KDtree we're going to create; 
         # we can only use the position of the trajectories we feed into the 
         # KDTree. So, we need to find a way to map the ID to the positions. 
+        print("Processing query and database trajectories") 
         id_to_pos_dict = {}
         gt_dedup = []
         i = 0
@@ -94,7 +95,7 @@ class ModelProcessor():
                 gt_dedup.append(gt[1])
                 i += 1
         
-        # Smothing out the jagged q and gt traj arrays 
+        # Smoothing out the jagged q and gt traj arrays 
         q_array = np.array([x[1] for x in all_q])
         q_ids = [x[0] for x in all_q]
         gt_dedup = np.array(gt_dedup)
@@ -104,19 +105,41 @@ class ModelProcessor():
         gt_dedup = self.__pad_jagged_array(gt_dedup, max_len)
         q_array = self.__pad_jagged_array(q_array, max_len)
         
-        # Perform the prediction for the ground truth   
+        # Perform the prediction for the ground truth
         if predict_batch_size == 0:
-            prediction_gt = model.predict(gt_dedup)
+            print("Predicting GT traj")
+            prediction_gt = model.predict(gt_dedup, verbose = 1)
         else:
-            prediction_gt = model.predict(gt_dedup,batch_size=predict_batch_size)
-        
+            # Manually predict batch-by-batch to avoid OOM error 
+            prediction_gt = []
+            start_id = 0 
+            end_id = predict_batch_size
+            while True:
+                print("Batch prediction GT traj %d-%d" % (start_id, end_id))
+                gt_batch = gt_dedup[start_id:end_id]
+                pred_batch = model.predict(gt_batch)
+                prediction_gt.extend(pred_batch)
+                if end_id > len(gt_dedup):
+                    break
+                start_id += predict_batch_size
+                end_id += predict_batch_size
+            prediction_gt = np.array(prediction_gt)
+            
         # Flatten the representation for each trajectory in  gt 
+        print("Flattening learned representation of ground truth trajectories")
         gt_shape = prediction_gt.shape
         prediction_gt = prediction_gt.reshape((gt_shape[0], 
                                                gt_shape[1] * gt_shape[2]))
         
-        # Builds the KDtree out of the ground truth trajectories 
-        gt_tree = KDTree(prediction_gt)
+        # Builds the KDtree out of the ground truth trajectories
+        print("Building KD tree for the learned ground truth representations.")
+        gt_tree = cKDTree(prediction_gt)
+        
+        # Learning the representation of all query trajectories and do a reshape
+        print("Generating representation for all queries")
+        all_pred_q = model.predict(q_array)
+        all_pred_q = all_pred_q.reshape((all_pred_q.shape[0],
+                                         all_pred_q.shape[1]*all_pred_q.shape[2]))
         
         # Iterate through each of the query trajectories to query the KDTree 
         # First case is the top-k ranking. 
@@ -126,20 +149,17 @@ class ModelProcessor():
             for i in range(len(q_array)):
                 # Get the q's representation 
                 print("Evaluating trajectory %d out of %d." % (i+1,len(q_array)))
-                one_q = model.predict(np.array([q_array[i]])) 
-                one_q_shape = one_q.shape
-                one_q = one_q.reshape((one_q_shape[0], 
-                                       one_q_shape[1] * one_q_shape[2]))
+                one_q = all_pred_q[i]
                                        
                 # Get the ID and find the position of the corresponding ground 
                 # truth trajectory in the KDTree 
                 q_id = q_ids[i]
                 gt_pos = id_to_pos_dict[q_id]
-                
                 if use_mean_rank:
-                    q_knn = gt_tree.query(one_q, k = len(prediction_gt))[1][0]
+                    q_knn = gt_tree.query(one_q, k = len(prediction_gt))[1]
                 else:
-                    q_knn = gt_tree.query(one_q, k = max(ks))[1][0]
+                    q_knn = gt_tree.query(one_q, k = max(ks))[1]
+                
                 
                 # Check if the top-k hits are achieved 
                 k_hit = np.array([gt_pos in q_knn[:x] for x in ks])
