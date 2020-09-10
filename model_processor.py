@@ -4,6 +4,8 @@ Tasks such as the training and testing of the models are done here.
 """
 
 from keras import models 
+from keras import backend as K 
+from numba import cuda 
 from scipy.spatial import cKDTree 
 from tensorflow.keras import callbacks 
 import copy 
@@ -125,6 +127,15 @@ class ModelProcessor():
                 end_id += predict_batch_size
             prediction_gt = np.array(prediction_gt)
             
+        # Learning the representation of all query trajectories and do a reshape
+        print("Generating representation for all queries")
+        all_pred_q = model.predict(q_array)
+        all_pred_q = all_pred_q.reshape((all_pred_q.shape[0],
+                                         all_pred_q.shape[1]*all_pred_q.shape[2]))
+        
+        # At this point, the model is no longer used. Release GPU resources 
+        self.__force_release_gpu() 
+            
         # Flatten the representation for each trajectory in  gt 
         print("Flattening learned representation of ground truth trajectories")
         gt_shape = prediction_gt.shape
@@ -134,12 +145,6 @@ class ModelProcessor():
         # Builds the KDtree out of the ground truth trajectories
         print("Building KD tree for the learned ground truth representations.")
         gt_tree = cKDTree(prediction_gt)
-        
-        # Learning the representation of all query trajectories and do a reshape
-        print("Generating representation for all queries")
-        all_pred_q = model.predict(q_array)
-        all_pred_q = all_pred_q.reshape((all_pred_q.shape[0],
-                                         all_pred_q.shape[1]*all_pred_q.shape[2]))
         
         # Iterate through each of the query trajectories to query the KDTree 
         # First case is the top-k ranking. 
@@ -347,3 +352,13 @@ class ModelProcessor():
         for j, row in enumerate(in_array):
             final[j, :len(row)] += row 
         return final 
+        
+    
+    def __force_release_gpu(self):
+        """
+        Release the resources from the GPU
+        """
+        print("Releasing resources GPU resources")
+        cuda.select_device(0)
+        cuda.close() 
+       

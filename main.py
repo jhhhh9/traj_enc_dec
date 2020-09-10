@@ -97,7 +97,6 @@ def main():
         test_gt = file_reader.read_npy(arg_processor.test_gt_path)
         test_q = file_reader.read_npy(arg_processor.test_q_path)
         
-        
         # Load the model 
         print("Loading model...")
         model_path = arg_processor.model_path
@@ -111,9 +110,8 @@ def main():
         print("Evaluating model...")
         predict_start = time.time()
         results = model_processor.model_evaluate(encoder, test_q, test_gt, ks,
-                                                 use_mean_rank, 
-                                                 predict_batch_size)
-        predict_time = time.time() - predict_start
+                                                 use_mean_rank, predict_batch_size)
+        predict_time = time.time() - predict_start 
         
         # Write the results to a file 
         output_directory = arg_processor.output_directory
