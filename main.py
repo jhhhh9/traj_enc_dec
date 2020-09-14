@@ -102,7 +102,7 @@ def main():
         model_path = arg_processor.model_path
         triplet_margin = arg_processor.triplet_margin
         pred_model = model_processor.load_model(model_path, triplet_margin)
-        encoder = pred_model.get_layer('model_1')
+        encoder = pred_model.get_layer('functional_3')
         ks = arg_processor.ks
         use_mean_rank = arg_processor.use_mean_rank
         predict_batch_size = arg_processor.predict_batch_size

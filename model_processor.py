@@ -221,7 +221,7 @@ class ModelProcessor():
         
         Args:
             y_true: (whatever) Supposed to be the ground truth values, but this 
-                     is not used in the representation loss as this loss 
+                     is not used in the reyyypresentation loss as this loss 
                      relies entirely on the model output. 
             y_pred: (keras tensor) Keras tensor of shape 
         """
@@ -267,10 +267,23 @@ class ModelProcessor():
         """
         # 'y_pred' shape (batch_size, trg_traj_len, k+1)
         # 'y_weights' shape (batch_size, traj_len, k). 
-        y_pred_weights = y_pred[:,:,:-1]
+        y_pred_weights = y_pred
         
         # 'y_true' shape (batch_size, traj_len, k+2)
-        y_true_weights = y_true
+        # 'y_true_weights' shape (batch_size, traj_len, k+)
+        y_true_weights = y_true[:,:,:-2]
+        
+        # DEBUG START
+        """
+        print_op = tf.print("Debug output:", len(y_true), len(y_true[0]), len(y_true[0][0]), 
+                                             len(y_pred), len(y_pred[0]), len(y_pred[0][0]))
+        dist = K.sqrt(K.mean(K.square(y_true_weights - y_pred_weights), 
+                       axis=-1,keepdims=False))  
+        with tf.control_dependencies([print_op]):
+            return dist
+        """
+        # DEBUG END 
+        
         
         # Create the boolean mask to filter out nan values in y_true_weights 
         bool_finite = tf.math.is_finite(y_true_weights) 

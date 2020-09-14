@@ -317,7 +317,9 @@ class STSeqModel():
         # - ground truth trajectory, 
         # - query trajectory
         # - negative trajectory
-        self.__NUM_FEATURES = 7 
+        # - spatial pattern 
+        # - temporal pattern 
+        self.__NUM_FEATURES = 5
         self.__NUM_INNER_FEATURES = 1
         inputs = Input((self.__NUM_FEATURES, None, self.__NUM_INNER_FEATURES))
         
@@ -354,9 +356,12 @@ class STSeqModel():
         trg_traj_len = gt.shape[1] 
         trg_patt_len = gt_patt_s.shape[1]
         
+        # Getting the point-to-point and pattern representation 
+        # Inputs:
         # 'q' shape (batch_size, traj_len, 1). 
         # 'gt' shape (batch_size, traj_len, 1). 
         # 'gt_patt_st' shape (batch_size, traj_len, 2)
+        # Outputs: 
         # 'traj_repr' shape (batch_size,trg_traj_len,gru_cell_size * directions)
         # 'patt_repr' shape (batch_size,trg_traj_len,gru_cell_size * directions)
         # directions = 2 if bidirectional, else 1
@@ -369,9 +374,13 @@ class STSeqModel():
         
         # Encoder part 
         self.encoder = encoder_decoder.encoder 
+        
+        # Getting the trajectory representation 
+        # Inputs: 
         # 'q' shape (batch_size, traj_len, 1). 
         # 'gt' shape (batch_size, traj_len, 1). 
         # 'neg' shape (batch_size, traj_len, 1). 
+        # Outputs: 
         # 'enc_q' shape (batch_size, traj_len, gru_cell_size * directions). 
         # 'enc_gt' shape (batch_size, traj_len, gru_cell_size * directions). 
         # 'enc_neg' shape (batch_size, traj_len, gru_cell_size * directions). 
@@ -382,16 +391,26 @@ class STSeqModel():
         
         # Three loss functions needed, so we need three outputs 
         # First is the representation loss which takes the encoder outputs 
+        # Inputs: 
         # 'enc_q' shape (batch_size, traj_len, gru_cell_size * directions). 
         # 'enc_gt' shape (batch_size, traj_len, gru_cell_size * directions). 
         # 'enc_neg' shape (batch_size, traj_len, gru_cell_size * directions). 
+        # Outputs: 
         # 'out_repr' shape (batch_size, 3, traj_len, gru_cell_size * directions)
         out_repr = K.stack([enc_q, enc_gt, enc_neg], axis=1)
         
-        # 'traj_repr' shape (batch_size, trg_traj_len, k)
+        # Second is the point-to-point loss. 
+        # Inputs:
+        # 'traj_repr' shape (batch_size,trg_traj_len,gru_cell_size * directions)
+        # Outputs: 
+        # 'out_traj' shape (batch_size, trg_traj_len, k)
         out_traj = TimeDistributed(Dense(k, activation = 'relu'))(traj_repr)
         
-        # 'patt_repr' shape (batch_size, trg_traj_len, 2)
+        # Third is the pattern loss
+        # Inputs: 
+        # 'patt_repr' shape (batch_size,trg_traj_len,gru_cell_size * directions)
+        # Outputs: 
+        # 'out_patt' shape (batch_size, trg_traj_len, 2)
         out_patt = TimeDistributed(Dense(2, activation = 'relu'))(patt_repr)
         
         # Create model 

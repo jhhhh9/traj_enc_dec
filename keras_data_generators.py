@@ -14,6 +14,14 @@ class KerasFitGenerator(keras.utils.Sequence):
         self.topk_weights = topk_weights
         self.batch_size = batch_size
         
+        # Shuffle the dataset so that when we pick the negative samples later 
+        # it will also be randomized 
+        indices = np.arange(self.X.shape[0])
+        np.random.shuffle(indices)
+        self.X = self.X[indices]
+        self.y = self.y[indices]
+        
+        
     def __len__(self):
         return int(np.ceil(self.X.shape[0] / self.batch_size))
         
