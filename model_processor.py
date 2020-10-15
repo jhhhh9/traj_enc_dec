@@ -72,7 +72,6 @@ class ModelProcessor():
                                   self.point2point_loss,
                                   self.patt_loss],
                           loss_weights = loss_weights)
-        input(loss_weights)
         model.fit(train_generator, validation_data = val_generator,
                   epochs = epochs, callbacks = all_callbacks) 
 
