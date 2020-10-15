@@ -101,8 +101,8 @@ class Encoder():
 
 class Decoder():
     """
-    Handles the Decoder part of the overall encoder-decoder model. The Decoder 
-    first it produces the feature vector representation of the target 
+    Handles the Decoder part of the overall encoder-decoder model. The Encoder 
+    first produces the feature vector representation of the target 
     trajectory. Then, an attention layer is applied to this feature vector 
     representation and the source trajectory feature vector representation. 
     The output of this attention module is used as the Decoder 

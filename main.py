@@ -80,14 +80,15 @@ def main():
         epochs = arg_processor.epochs 
         output_directory = arg_processor.output_directory
         patience = arg_processor.patience
+        loss_weights = arg_processor.loss_weights
         train_start = time.time()
-        model_processor.model_train(stseqmodel.model, epochs,  train_gen, val_gen, 
-                                    triplet_margin, output_directory, patience,
-                                    model_path)
+        model_processor.model_train(stseqmodel.model, epochs,  train_gen, 
+                                    val_gen, triplet_margin, patience, 
+                                    loss_weights, model_path)
         train_time = time.time() - train_start 
         log_writer.write_train_results(output_directory, training_x, training_y, 
                                        validation_x, validation_y, topk_id, 
-                                       topk_weights, train_time)
+                                       topk_weights, loss_weights, train_time)
 
 
     if is_evaluating:
@@ -103,6 +104,7 @@ def main():
         triplet_margin = arg_processor.triplet_margin
         pred_model = model_processor.load_model(model_path, triplet_margin)
         encoder = pred_model.get_layer('functional_3')
+        #encoder = pred_model.get_layer('model_1')
         ks = arg_processor.ks
         use_mean_rank = arg_processor.use_mean_rank
         predict_batch_size = arg_processor.predict_batch_size

@@ -19,7 +19,7 @@ class ModelProcessor():
     prediction.
     """
     def model_train(self, model, epochs, train_generator, val_generator, 
-                    triplet_margin, output_directory, patience, model_path):
+                    triplet_margin, patience, loss_weights, model_path):
         """
         Trains the provided model and save the best performing model. 
         
@@ -31,13 +31,14 @@ class ModelProcessor():
             val_generator: (keras generator) The data generator for the 
                             validation. 
             triplet_margin: (float) Margin for the triplet loss
-            output_directory: (string) Output directory to save the best model 
             checkpoint_model: (boolean) Whether or not the model checkpointing 
                                is used. 
             patience: (integer) Terminate training if the model's performance 
                        does not improve after this many epochs. 
             model_path: (string) The directory where the model checkpoint will 
                          be output to. 
+            loss_weights: (list of integers or floats) Weights that control the 
+                           balance of the three loss functions 
         """
         # Create the callbacks. 
         # EarlStopping
@@ -55,12 +56,23 @@ class ModelProcessor():
                                                      save_weights_only=False,
                                                      mode='min')
         all_callbacks.append(model_checkpoint)
+        
+        # Our CustomCallback for the learning rate scheduling
+        all_callbacks.append(CustomCallback())
 
         # Compile and train 
-        model.compile(optimizer = "adam", 
-                      loss = [self.repr_loss(triplet_margin),
-                              self.point2point_loss,
-                              self.patt_loss])
+        if loss_weights is None: 
+            model.compile(optimizer = "adam", 
+                          loss = [self.repr_loss(triplet_margin),
+                                  self.point2point_loss,
+                                  self.patt_loss])
+        else:
+            model.compile(optimizer = "adam", 
+                          loss = [self.repr_loss(triplet_margin),
+                                  self.point2point_loss,
+                                  self.patt_loss],
+                          loss_weights = loss_weights)
+        input(loss_weights)
         model.fit(train_generator, validation_data = val_generator,
                   epochs = epochs, callbacks = all_callbacks) 
 
@@ -96,7 +108,7 @@ class ModelProcessor():
                 id_to_pos_dict[gt[0]] = i
                 gt_dedup.append(gt[1])
                 i += 1
-        
+                
         # Smoothing out the jagged q and gt traj arrays 
         q_array = np.array([x[1] for x in all_q])
         q_ids = [x[0] for x in all_q]
@@ -107,17 +119,20 @@ class ModelProcessor():
         gt_dedup = self.__pad_jagged_array(gt_dedup, max_len)
         q_array = self.__pad_jagged_array(q_array, max_len)
         
-        # Perform the prediction for the ground truth
+        # Generate the feature vector representation for the ground truth 
         if predict_batch_size == 0:
             print("Predicting GT traj")
             prediction_gt = model.predict(gt_dedup, verbose = 1)
         else:
-            # Manually predict batch-by-batch to avoid OOM error 
+            # Perform batch prediction if a batch size is provided 
             prediction_gt = []
             start_id = 0 
             end_id = predict_batch_size
             while True:
-                print("Batch prediction GT traj %d-%d" % (start_id, end_id))
+                end_id_print = end_id
+                if end_id_print > len(gt_dedup):
+                    end_id_print = len(gt_dedup) 
+                print("Batch prediction GT %d-%d" % (start_id,end_id_print))
                 gt_batch = gt_dedup[start_id:end_id]
                 pred_batch = model.predict(gt_batch)
                 prediction_gt.extend(pred_batch)
@@ -141,44 +156,44 @@ class ModelProcessor():
         gt_shape = prediction_gt.shape
         prediction_gt = prediction_gt.reshape((gt_shape[0], 
                                                gt_shape[1] * gt_shape[2]))
-        
+                                               
         # Builds the KDtree out of the ground truth trajectories
         print("Building KD tree for the learned ground truth representations.")
         gt_tree = cKDTree(prediction_gt)
         
         # Iterate through each of the query trajectories to query the KDTree 
-        # First case is the top-k ranking. 
-        if len(ks) > 0:
-            all_k_hit = []
-            all_rank = []
-            for i in range(len(q_array)):
-                # Get the q's representation 
-                print("Evaluating trajectory %d out of %d." % (i+1,len(q_array)))
-                one_q = all_pred_q[i]
-                                       
-                # Get the ID and find the position of the corresponding ground 
-                # truth trajectory in the KDTree 
-                q_id = q_ids[i]
-                gt_pos = id_to_pos_dict[q_id]
-                if use_mean_rank:
-                    q_knn = gt_tree.query(one_q, k = len(prediction_gt))[1]
-                else:
-                    q_knn = gt_tree.query(one_q, k = max(ks))[1]
-                
-                
-                # Check if the top-k hits are achieved 
-                k_hit = np.array([gt_pos in q_knn[:x] for x in ks])
-                all_k_hit.append(k_hit)
-                
-                # Get the actual rank if use_mean_rank is true 
-                if use_mean_rank:
-                    rank = np.where(q_knn==gt_pos)[0][0] + 1
-                    all_rank.append(rank) 
-            all_k_hit = np.array(all_k_hit) 
-            all_hit_rates = np.sum(all_k_hit, axis=0) / all_k_hit.shape[0]
-            mean_rank = None 
+        all_k_hit = []
+        all_rank = []
+        for i in range(len(q_array)):
+            print("Evaluating trajectory %d out of %d." % (i+1,len(q_array)))
+            one_q = all_pred_q[i]
+                                   
+            # Get the ID and find the position of the corresponding ground 
+            # truth trajectory in the KDTree 
+            q_id = q_ids[i]
+            gt_pos = id_to_pos_dict[q_id]
             if use_mean_rank:
-                mean_rank = sum(all_rank)/len(all_rank) 
+                q_knn = gt_tree.query(one_q, k = len(prediction_gt))[1]
+            else:
+                q_knn = gt_tree.query(one_q, k = max(ks))[1]
+            
+            
+            # Check if the top-k hits are achieved 
+            k_hit = np.array([gt_pos in q_knn[:x] for x in ks])
+            all_k_hit.append(k_hit)
+            
+            # Get the actual rank if use_mean_rank is true 
+            if use_mean_rank:
+                rank = np.where(q_knn==gt_pos)[0][0] + 1
+                all_rank.append(rank) 
+                print("Rank: %d. Rolling mean: %d" % \
+                      (rank, sum(all_rank)/float(len(all_rank))))
+        all_k_hit = np.array(all_k_hit) 
+        all_hit_rates = np.sum(all_k_hit, axis=0) / all_k_hit.shape[0]
+        mean_rank = None 
+        if use_mean_rank:
+            mean_rank = sum(all_rank)/len(all_rank) 
+            
         return [all_hit_rates, mean_rank]
 
 
@@ -221,18 +236,27 @@ class ModelProcessor():
         
         Args:
             y_true: (whatever) Supposed to be the ground truth values, but this 
-                     is not used in the reyyypresentation loss as this loss 
-                     relies entirely on the model output. 
-            y_pred: (keras tensor) Keras tensor of shape 
+                     is not used in the representation loss because we have no
+                     actual ground truth. The input to this loss all come 
+                     from the output of the model. 
+            y_pred: (keras tensor) Keras tensor which is the output from the 
+                     model 
+                     
+        Returns:
+            A loss function to be used for the model 
         """
         def triplet_loss(y_true, y_pred):
             """
             Args:
                 y_true: (whatever) Supposed to be the ground truth values, but 
-                         this is not used in the representation loss as this 
-                         loss relies entirely on the model output. 
-                y_pred: (keras tensor) Keras tensor of shape 
-                        (batch_size,3,traj_len, gru_cell_size * directions)
+                         this is not used in the representation loss because we 
+                         have no actual ground truth. The input to this loss all 
+                         come from the output of the model. 
+                y_pred: (keras tensor) Keras tensor which is the output from the 
+                         model 
+                         
+            Returns:
+                The triplet loss function to be used for training the model 
             """
             # Split y_pred, consisting of the output from the model 
             # 'y_pred' shape (batch_size,3,traj_len, gru_cell_size * directions)
@@ -365,7 +389,7 @@ class ModelProcessor():
         for j, row in enumerate(in_array):
             final[j, :len(row)] += row 
         return final 
-        
+       
     
     def __force_release_gpu(self):
         """
@@ -374,4 +398,27 @@ class ModelProcessor():
         print("Releasing resources GPU resources")
         cuda.select_device(0)
         cuda.close() 
-       
+        
+class CustomCallback(callbacks.Callback):
+    def __init__(self):
+        self.cur_batch = 1
+        self.target_batch_for_min_lr = 1800
+
+    def on_train_batch_end(self, batch, logs=None):
+        # Linear learning rate decay 
+        if self.cur_batch == 1:
+            self.initial_lr = self.model.optimizer.lr 
+            self.min_lr = self.model.optimizer.lr/10 
+        decay = (self.initial_lr - self.min_lr)/self.target_batch_for_min_lr
+        new_lr = self.model.optimizer.lr - decay 
+        print(self.model.optimizer.lr)
+        if new_lr >= self.min_lr:
+            K.set_value(self.model.optimizer.lr, new_lr)
+        print(self.model.optimizer.lr)
+        self.cur_batch += 1
+        
+
+        
+        
+        
+        

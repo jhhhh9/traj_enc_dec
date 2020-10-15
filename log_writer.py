@@ -45,7 +45,7 @@ class LogWriter():
         
     def write_train_results(self, output_dir, training_x, training_y, 
                             validation_x, validation_y, topk_id,topk_weights,
-                            train_time):
+                            loss_weights, train_time):
         """
         Prints the training log 
         """
@@ -64,6 +64,8 @@ class LogWriter():
             log_file.write("Top-k ID Shape: " + str(topk_id.shape))
             log_file.write("\n")
             log_file.write("Top-k weights Shape: " + str(topk_weights.shape))
+            log_file.write("\n")
+            log_file.write("Loss weights: " + str(loss_weights))
             log_file.write("\n")
             log_file.write("Total training time: " + str(train_time))
             
