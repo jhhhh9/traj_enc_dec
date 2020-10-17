@@ -12,6 +12,7 @@ import copy
 import numpy as np 
 import tensorflow as tf 
 import tensorflow.keras.backend as K 
+import time 
 
 class ModelProcessor():
     """
@@ -163,10 +164,14 @@ class ModelProcessor():
         # Iterate through each of the query trajectories to query the KDTree 
         all_k_hit = []
         all_rank = []
+        all_eval_time = []
         for i in range(len(q_array)):
             print("Evaluating trajectory %d out of %d." % (i+1,len(q_array)))
             one_q = all_pred_q[i]
                                    
+            # Start timer to get evaluation time 
+            eval_start = time.time() 
+            
             # Get the ID and find the position of the corresponding ground 
             # truth trajectory in the KDTree 
             q_id = q_ids[i]
@@ -185,15 +190,21 @@ class ModelProcessor():
             if use_mean_rank:
                 rank = np.where(q_knn==gt_pos)[0][0] + 1
                 all_rank.append(rank) 
-                print("Rank: %d. Rolling mean: %d" % \
+                print("Rank: %f. Rolling mean: %f" % \
                       (rank, sum(all_rank)/float(len(all_rank))))
+                      
+            # Calculate evaluation time 
+            eval_end = time.time()
+            eval_time = eval_end-eval_start
+            all_eval_time.append(eval_time)
+            avg_eval_time = sum(all_eval_time)/len(all_eval_time)
+            print("Eval time: %f. Rolling mean: %f"%(eval_time, avg_eval_time))
         all_k_hit = np.array(all_k_hit) 
         all_hit_rates = np.sum(all_k_hit, axis=0) / all_k_hit.shape[0]
         mean_rank = None 
         if use_mean_rank:
             mean_rank = sum(all_rank)/len(all_rank) 
-            
-        return [all_hit_rates, mean_rank]
+        return [all_hit_rates, mean_rank, avg_eval_time]
 
 
     def load_model(self, model_path, triplet_margin):
@@ -295,18 +306,6 @@ class ModelProcessor():
         # 'y_true' shape (batch_size, traj_len, k+2)
         # 'y_true_weights' shape (batch_size, traj_len, k+)
         y_true_weights = y_true[:,:,:-2]
-        
-        # DEBUG START
-        """
-        print_op = tf.print("Debug output:", len(y_true), len(y_true[0]), len(y_true[0][0]), 
-                                             len(y_pred), len(y_pred[0]), len(y_pred[0][0]))
-        dist = K.sqrt(K.mean(K.square(y_true_weights - y_pred_weights), 
-                       axis=-1,keepdims=False))  
-        with tf.control_dependencies([print_op]):
-            return dist
-        """
-        # DEBUG END 
-        
         
         # Create the boolean mask to filter out nan values in y_true_weights 
         bool_finite = tf.math.is_finite(y_true_weights) 

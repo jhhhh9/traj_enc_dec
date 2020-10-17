@@ -91,6 +91,8 @@ class LogWriter():
             if results[1] is not None:
                 log_file.write("\n")
                 log_file.write("Mean rank: " + str(results[1]))
+            log_file.write("\n")
+            log_file.write("Average evaluation time: " + str(results[2]))
 
 
     def copy_ini_file(self, ini_path, output_directory):
