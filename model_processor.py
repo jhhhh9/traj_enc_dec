@@ -3,8 +3,8 @@ This module handles tasks related to the Keras models except the creation.
 Tasks such as the training and testing of the models are done here. 
 """
 
-from keras import models 
-from keras import backend as K 
+from tensorflow.keras import models
+from tensorflow.keras import backend as K
 from numba import cuda 
 from scipy.spatial import cKDTree 
 from tensorflow.keras import callbacks 
@@ -273,13 +273,16 @@ class ModelProcessor():
             # 'anc' shape (batch_size, traj_len, gru_cell_size * directions). 
             # 'pos' shape (batch_size, traj_len, gru_cell_size * directions). 
             # 'neg' shape (batch_size, traj_len, gru_cell_size * directions). 
-            anc = y_pred[:,0,:,:]
-            pos = y_pred[:,1,:,:]
-            neg = y_pred[:,2,:,:]
+            # 三个输出 out_repr, out_traj, out_patt
+            # todo ： 好像错了
+            anc = y_pred[:,0,:,:] # 正
+            pos = y_pred[:,1,:,:] # 原始
+            neg = y_pred[:,2,:,:] # 负
             
             # Form the loss function 
             # 'posdist' shape (batch_size, traj_len)
             # 'negdist' shape (batch_size, traj_len)
+            # 公式loss
             pos_dist = K.sqrt(K.sum(K.square(anc-pos), axis=-1,keepdims=False))
             neg_dist = K.sqrt(K.sum(K.square(anc-neg), axis=-1,keepdims=False))
             const = K.constant(margin, dtype='float32')

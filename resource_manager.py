@@ -30,6 +30,10 @@ def set_gpu_resource(gpus, gpu_memory_mb):
         os.environ["CUDA_VISIBLE_DEVICES"] = gpu_str
         import tensorflow as tf
         all_device_gpus = tf.config.experimental.list_physical_devices('GPU')
+        config = tf.compat.v1.ConfigProto()
+        config.gpu_options.per_process_gpu_memory_fraction = 0.8  # 程序最多只能占用指定gpu50%的显存
+        config.gpu_options.allow_growth = True  # 程序按需申请内存
+        sess = tf.compat.v1.Session(config=config)
         for device_gpu in all_device_gpus:
             tf.config.experimental.set_virtual_device_configuration(device_gpu,
                 [tf.config.experimental.VirtualDeviceConfiguration \

@@ -48,6 +48,7 @@ class FileReader():
         Returns:
             A numpy array containing the concatenation of all .npy files'  data
         """
+        # 获取每个分组，前定义的500个，然后拼接成一个完整的训练数据或者验证数据
         all_npy = os.listdir(path)
         all_npy.sort() 
         all_np_arr = self.read_npy(Path(path) / all_npy[0])

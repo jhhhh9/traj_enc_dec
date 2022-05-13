@@ -52,6 +52,7 @@ class StackedGRU():
 
         hn = []
         if bidirectional:
+            # todo：问题
             gru = Bidirectional(GRU(gru_cell_size, 
                                     dropout = gru_dropout_ratio,
                                     return_sequences = True))\
@@ -135,6 +136,7 @@ class Decoder():
         """
         # embedded_src (batch_size, src_traj_len, src_feature_size)
         # This input is for the encoded source trajectory 
+        # 正样本和特征表示的长度
         embedded_src = Input((src_traj_len, src_feature_size))
         
         # inputs_trg (batch_size, trg_traj_len)
@@ -145,6 +147,7 @@ class Decoder():
         # embedded_trg (batch_size, trg_traj_len, src_feature_size)
         # Since the embedding layer used is the same as the target, the 
         # output feature size is the same as src_feature_size
+        # 输入原始数据 利用teacher forcing
         embedded_trg = embedding(inputs_trg)
         embedded_trg = gru(embedded_trg)
         
@@ -152,6 +155,7 @@ class Decoder():
         # embedded_trg (batch_size, trg_traj_len, src_feature_size)
         # outputs (batch_size, trg_traj_len, src_feature_size)
         # TODO: OPTION TO NOT USE ATTENTION 
+        # 根据正样本和特征表示 与 原始数据做attention
         outputs = Attention()([embedded_trg, embedded_src])
         self.model = Model(inputs = [embedded_src, inputs_trg],outputs=outputs)
 
@@ -188,15 +192,18 @@ class PatternDecoder():
         """
         # embedded_src (batch_size, src_traj_len, src_feature_size)
         # This input is for the encoded source trajectory 
+        # 正样本和特征表示的长度
         embedded_src = Input((src_traj_len, src_feature_size))
         
         # inputs_trg (batch_size, trg_traj_len, 2)
         # This input is for the target spatiotemporal trajectory pattern
+        # 模式特征长度，2种模式
         inputs_trg = Input((trg_traj_len, 2))
         
         # inputs_trg (batch_size, trg_traj_len, 2)
         # embedded_trg (batch_size, trg_traj_len, src_feature_size)
         # Learns features based on inputs_trg. 
+        # 针对最后一维转换，根据时空模式特征得到src_feature_size维的向量
         embedded_trg = TimeDistributed(Dense(src_feature_size, 
                                              activation = 'relu'))(inputs_trg)
         
@@ -204,6 +211,7 @@ class PatternDecoder():
         # embedded_trg (batch_size, trg_traj_len, src_feature_size)
         # outputs (batch_size, trg_traj_len, src_feature_size)
         # TODO: OPTION TO NOT USE ATTENTION 
+        # 根据正样本和特征表示 与 时空模式特征做attention
         outputs = Attention()([embedded_trg, embedded_src])
         self.model = Model(inputs = [embedded_src, inputs_trg],outputs=outputs)
 
@@ -250,6 +258,7 @@ class EncoderDecoder():
         """
         # inputs_1 (batch_size, src_traj_len) 
         # This input is for the source trajectory 
+        # 输入是[q, gt, gt_patt_st]， gt_patt_st是2维的
         inputs_1 = Input((src_traj_len,))
         
         # inputs_2 (batch_size, trg_traj_len)
@@ -261,17 +270,22 @@ class EncoderDecoder():
         inputs_3 = Input((trg_patt_len,2))
         
         # Encoder part
+        # 编码器
         self.sgru = StackedGRU(embedding_size, gru_cell_size, 
                                num_gru_layers, gru_dropout_ratio, bidirectional, 
-                               encoder_h0).model
+                               encoder_h0).model # I tensorflow/stream_executor/cuda/cuda_driver.cc:789] failed to allocate 11.87G (12740198400 bytes) from device: CUDA_ERROR_OUT_OF_MEMORY: out of memory
         self.embedding = Embedding(embed_vocab_size, embedding_size)
+        # 首先经过嵌入层，然后再进入gru
+        # 输入长度就是src_traj_len
         self.encoder = Encoder(src_traj_len, self.embedding, self.sgru)
         # inputs (batch_size, src_traj_len) 
         # encoded (batch_size, src_traj_len, gru_cell_size * directions) 
         # directions = 2 if bidirectional, else 1.
+        # 正样本实行encoder
         encoded = self.encoder.model(inputs_1)
         
         # Decoder part 
+        # 特征表示的大小和gru cell size 一致
         traj_repr_size = gru_cell_size
         if bidirectional:
             traj_repr_size *= 2
@@ -280,6 +294,8 @@ class EncoderDecoder():
         # encoded (batch_size, src_traj_len, gru_cell_size * directions) 
         # inputs_2 (batch_size, trg_traj_len)
         # output_point (batch_size, trg_traj_len, gru_cell_size * directions)
+        # encoder的输出以及原始数据作为输入
+        # 类似原始的重构
         output_point = self.decoder.model([encoded, inputs_2])
         
         # Pattern decoder part 
@@ -289,6 +305,8 @@ class EncoderDecoder():
         # encoded (batch_size, src_traj_len, embedding_size) 
         # inputs_2 (batch_size, trg_traj_len)  
         # output_patt (batch_size, trg_patt_len, embedding_size)
+        # encoder的输出以及时空模式特征作为输入
+        # 新增一个模式上的重构
         output_patt = self.patt_decoder.model([encoded, inputs_3])
         
         # Finished model 
@@ -314,11 +332,11 @@ class STSeqModel():
         """
         # 'inputs' shape (batch_size, num_inner_data, traj_len, 1)
         # num_inner_data should be 5, representing: 
-        # - ground truth trajectory, 
-        # - query trajectory
-        # - negative trajectory
-        # - spatial pattern 
-        # - temporal pattern 
+        # - ground truth trajectory,    原始数据
+        # - query trajectory    正样本
+        # - negative trajectory 负样本
+        # - spatial pattern     空间模式
+        # - temporal pattern    时间模式
         self.__NUM_FEATURES = 5
         self.__NUM_INNER_FEATURES = 1
         inputs = Input((self.__NUM_FEATURES, None, self.__NUM_INNER_FEATURES))
@@ -326,24 +344,30 @@ class STSeqModel():
         ## Lambda layers to split the inputs. 
         # 'gt' shape (batch_size, traj_len, 1). 
         # Represents ground truth trajectory.
+        # 输入是【batchsize, 5, maxlen, 1】
+        # 所以此处是取出第一维数据，原始数据
         gt = Lambda(lambda x:x[:,0,:,0])(inputs)
         gt = Masking(mask_value = 0)(gt) 
         
         # 'q' shape (batch_size, traj_len, 1). 
         # Represents the query trajectory. 
+        # 正样本
         q = Lambda(lambda x:x[:,1,:,0])(inputs)
         q = Masking(mask_value = 0)(q) 
         
         # 'neg' shape (batch_size, traj_len, 1). 
         # Represents the negative trajectory. 
+        # 负样本
         neg = Lambda(lambda x:x[:,2,:,0])(inputs)
         neg = Masking(mask_value = 0)(neg) 
         
         # 'gt_patt_s' shape (batch_size, traj_len, 1).
+        # 空间模式
         gt_patt_s = Lambda(lambda x:x[:,3,:,:])(inputs)
         gt_patt_s = Masking(mask_value = 0)(gt_patt_s) 
         
         # 'gt_patt_t' shape (batch_size, traj_len, 1).
+        # 时间模式
         gt_patt_t = Lambda(lambda x:x[:,4,:,:])(inputs)
         gt_patt_t = Masking(mask_value = 0)(gt_patt_t)  
         
@@ -352,6 +376,10 @@ class STSeqModel():
         
         # EncoderDecoder model 
         assert gt_patt_s.shape[0] == gt_patt_t.shape[0] 
+        # 各个数据的长度
+        # 'q' shape (batch_size, traj_len, 1). 
+        # 'gt' shape (batch_size, traj_len, 1). 
+        # 'gt_patt_st' shape (batch_size, traj_len, 2)
         src_traj_len = q.shape[1]
         trg_traj_len = gt.shape[1] 
         trg_patt_len = gt_patt_s.shape[1]

@@ -17,7 +17,7 @@ from traj_processor import TrajProcessor
 def main(): 
     # Read the ini file path argument 
     parser = ArgumentParser(description='inputs')
-    parser.add_argument('--config', dest = 'config',
+    parser.add_argument('--config', dest = 'config', default="arg.ini",
                         help='The path to the .ini config file. FORMAT: ' + 
                              'a string.')
     ini_path = parser.parse_args().config
@@ -41,6 +41,7 @@ def main():
     if is_training: 
         # Reads the input .npy files for the data and the topk trajectories 
         print("Reading training data...")
+        # 轨迹数据对应的4D数据
         training_x = file_reader.read_data(arg_processor.training_x_path)
         training_y = file_reader.read_data(arg_processor.training_y_path)
         validation_x = file_reader.read_data(arg_processor.validation_x_path)
@@ -51,7 +52,7 @@ def main():
         print("Creating data generators...")
         batch_size = arg_processor.batch_size
         train_gen = KerasFitGenerator(training_x, training_y, topk_weights, 
-                                      batch_size) 
+                                      batch_size) # 用于提供数据
         val_gen = KerasFitGenerator(validation_x, validation_y, topk_weights,
                                     batch_size)
         
@@ -82,10 +83,12 @@ def main():
         patience = arg_processor.patience
         loss_weights = arg_processor.loss_weights
         train_start = time.time()
+        # 细看
         model_processor.model_train(stseqmodel.model, epochs,  train_gen, 
                                     val_gen, triplet_margin, patience, 
                                     loss_weights, model_path)
         train_time = time.time() - train_start 
+        # 打印
         log_writer.write_train_results(output_directory, training_x, training_y, 
                                        validation_x, validation_y, topk_id, 
                                        topk_weights, loss_weights, train_time)
