@@ -15,7 +15,7 @@ def set_gpu_resource(gpus, gpu_memory_mb):
     else:
         gpus_ = []
         for gpu in gpus:
-            if gpu in [0,1]:
+            if gpu in [0,1,2,3,4,5,6,7]:
                 gpus_.append(gpu)
             else:
                 print("Warning! " + str(gpu) + " is not a valid GPU no. This \

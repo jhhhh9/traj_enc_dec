@@ -46,6 +46,8 @@ def main():
         training_y = file_reader.read_data(arg_processor.training_y_path)
         validation_x = file_reader.read_data(arg_processor.validation_x_path)
         validation_y = file_reader.read_data(arg_processor.validation_y_path) 
+        # validation_x = file_reader.read_data(arg_processor.training_x_path)
+        # validation_y = file_reader.read_data(arg_processor.training_y_path)
         topk_weights = file_reader.read_data(arg_processor.topk_weights_path)
         
         # Create the fit generator 
@@ -106,7 +108,8 @@ def main():
         model_path = arg_processor.model_path
         triplet_margin = arg_processor.triplet_margin
         pred_model = model_processor.load_model(model_path, triplet_margin)
-        encoder = pred_model.get_layer('functional_3')
+
+        encoder = pred_model.get_layer('model_1') #pred_model.get_layer('functional_3')
         #encoder = pred_model.get_layer('model_1')
         ks = arg_processor.ks
         use_mean_rank = arg_processor.use_mean_rank
@@ -124,6 +127,8 @@ def main():
                                      predict_time, ks, results)
         # Also make a copy of the input .ini file 
     log_writer.copy_ini_file(ini_path, output_directory)
+    print("exp path is: {}".format(arg_processor.model_path))
+
     
 if __name__ == "__main__":
     start_dt = datetime.datetime.now()

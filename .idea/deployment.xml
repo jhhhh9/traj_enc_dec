@@ -1,21 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="huangjiahui@10.105.16.24:22 (1)">
         <serverdata>
           <mappings>
+            <mapping deploy="/code/traj_enc_dec" local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="huangjiahui@10.105.16.24:22 (2)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/code/traj_enc_dec" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="huangjiahui@10.105.16.24:22 (3)">
+        <serverdata>
+          <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="huangjiahui@10.105.16.24:22(spatio)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/code/traj_enc_dec" local="$PROJECT_DIR$" />
           </mappings>
         </serverdata>
       </paths>
       <paths name="testhuangjiahui@10.105.16.24:22">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/code/traj_enc_dec" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
     </serverData>
+    <option name="myAutoUpload" value="ALWAYS" />
   </component>
 </project>

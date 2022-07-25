@@ -26,6 +26,8 @@ class ArgProcessor():
         self.training_y_path= config['DIRECTORY']['TrainingYPath']
         self.validation_x_path = config['DIRECTORY']['ValidationXPath']
         self.validation_y_path = config['DIRECTORY']['ValidationYPath']
+        self.test_x_path = config['DIRECTORY']['TestXPath']
+        self.test_y_path= config['DIRECTORY']['TestYPath']
         self.test_gt_path = config['DIRECTORY']['TestGTPath']
         self.test_q_path = config['DIRECTORY']['TestQPath']
         self.topk_id_path = config['DIRECTORY']['TopKIDPath']

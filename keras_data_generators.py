@@ -66,7 +66,7 @@ class KerasFitGenerator(Sequence):
         # [128,3]
         X_1 = np.concatenate((X[:,:2], X_neg), axis=1) # X正样本只取前两维，并且和负样本拼接
         # [128,2]
-        X_2 = X[:,2:]   # 后2维
+        X_2 = X[:,2:]   # 后2维gts和gtt
         # [128,5]
         X = np.concatenate((X_1, X_2), axis=1) # 相当于中间插入了负样本
         

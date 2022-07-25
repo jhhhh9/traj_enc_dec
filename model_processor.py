@@ -13,6 +13,7 @@ import numpy as np
 import tensorflow as tf 
 import tensorflow.keras.backend as K 
 import time 
+from cluster import ClusterTool
 
 class ModelProcessor():
     """
@@ -206,6 +207,76 @@ class ModelProcessor():
             mean_rank = sum(all_rank)/len(all_rank) 
         return [all_hit_rates, mean_rank, avg_eval_time]
 
+    def model_evaluate_cluster(self, model, all_gt, all_label, predict_batch_size, k, save=False, epoch="-1"):
+        """
+        Evaulate the model's performance.
+
+        Args:
+            model: (keras model) The model to be used for the prediction 
+            all_q: (numpy array) Array containing all query data 
+            all_gt: (numpy array) Array containing all ground truth data 
+            ks: (list of integers) Top-k's for the prediction
+            use_mean_rank: (boolean) Whether or not to report the mean predicted
+                            rank. 
+            predict_batch_size: (integer) The batch size for the prediction 
+
+        Returns: 
+            The hit rates for all given k 
+        """
+        # Remove duplicate ground truths and create dictionaries to find out 
+        # the matching ground truth given a query. We need this because we 
+        # cannot use the trajectory IDs in the KDtree we're going to create; 
+        # we can only use the position of the trajectories we feed into the 
+        # KDTree. So, we need to find a way to map the ID to the positions. 
+        X_gt = all_gt[:, 0]
+        
+        max_gt_len = max([len(x) for x in X_gt])
+        X_gt = self.__pad_jagged_array(X_gt, max_gt_len)
+        
+        # Generate the feature vector representation for the ground truth 
+        if predict_batch_size == 0:
+            print("Predicting GT traj")
+            prediction_gt = model.predict(X_gt, verbose=1)
+        else:
+            # Perform batch prediction if a batch size is provided 
+            prediction_gt = []
+            start_id = 0
+            end_id = predict_batch_size
+            while True:
+                end_id_print = end_id
+                if end_id_print > len(X_gt):
+                    end_id_print = len(X_gt)
+                print("Batch prediction GT %d-%d" % (start_id, end_id_print))
+                gt_batch = X_gt[start_id:end_id]
+                pred_batch = model.predict(gt_batch)
+                prediction_gt.extend(pred_batch)
+                if end_id > len(X_gt):
+                    break
+                start_id += predict_batch_size
+                end_id += predict_batch_size
+            prediction_gt = np.array(prediction_gt)
+
+        # At this point, the model is no longer used. Release GPU resources 
+        self.__force_release_gpu()
+
+        # Flatten the representation for each trajectory in  gt 
+        print("Flattening learned representation of ground truth trajectories")
+        gt_shape = prediction_gt.shape
+        prediction_gt = prediction_gt.reshape((gt_shape[0],
+                                               gt_shape[1] * gt_shape[2]))
+
+        
+        # kmeans and cal score
+
+        # k-means聚类，获取初始簇中心
+        centroids, error_total, nmi, ari, inertia_start, inertia_end, n_iter, labels = ClusterTool.DoKMeansWithError(all_label,
+                                                                                                             k=k, # 簇数
+                                                                                                             feature=prediction_gt,
+                                                                                                             save=save,
+                                                                                                             epoch=epoch)
+        
+        
+        return centroids, error_total, nmi, ari, inertia_start, inertia_end, n_iter, labels
 
     def load_model(self, model_path, triplet_margin):
         """

@@ -1,0 +1,4 @@
+Dataset contents: 'data_x', 'data_y'
+data_x shape: (60000, 4)
+data_y shape: (60000, 3)
+Lines read: 3000

@@ -1,0 +1,3 @@
+Dataset contents: 'topk_id', 'topk_weight'
+topk_id shape: (11853, 30)
+topk_weight shape: (11853, 30)
